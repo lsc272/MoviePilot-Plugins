@@ -8,6 +8,56 @@ from app.core.config import settings
 from app.utils.http import RequestUtils
 
 
+POPULAR_TMDB_LISTS = [
+    {
+        "title": "TMDB 本周热门电影",
+        "value": "trending_movies_week",
+        "path": "/3/trending/movie/week",
+        "media_type": "movie",
+    },
+    {
+        "title": "TMDB 本周热门剧集",
+        "value": "trending_tv_week",
+        "path": "/3/trending/tv/week",
+        "media_type": "tv",
+    },
+    {
+        "title": "TMDB 热门电影",
+        "value": "popular_movies",
+        "path": "/3/movie/popular",
+        "media_type": "movie",
+    },
+    {
+        "title": "TMDB 高分电影",
+        "value": "top_rated_movies",
+        "path": "/3/movie/top_rated",
+        "media_type": "movie",
+    },
+    {
+        "title": "TMDB 热门剧集",
+        "value": "popular_tv",
+        "path": "/3/tv/popular",
+        "media_type": "tv",
+    },
+    {
+        "title": "TMDB 高分剧集",
+        "value": "top_rated_tv",
+        "path": "/3/tv/top_rated",
+        "media_type": "tv",
+    },
+]
+
+
+POPULAR_DOUBAN_LISTS = [
+    {"title": "豆瓣高分电影榜（上）9.7–8.6", "value": "240962"},
+    {"title": "豆瓣高分电影榜（中）8.5–8.3", "value": "243559"},
+    {"title": "豆瓣高分电影榜（下）8.2–8.0", "value": "248893"},
+    {"title": "豆瓣冷门佳片（上）", "value": "13922"},
+    {"title": "豆瓣冷门佳片（下）", "value": "249029"},
+    {"title": "豆瓣高分动画长片", "value": "223781"},
+]
+
+
 @dataclass(frozen=True)
 class MediaRef:
     """A source item before it is matched to an Emby library item."""
@@ -96,7 +146,7 @@ class SourceResolver:
                 "模板": "template",
             }
             source_type = aliases.get(source_type, source_type)
-            if source_type not in {"tmdb", "douban", "template"}:
+            if source_type not in {"tmdb", "tmdb_builtin", "douban", "template"}:
                 raise ValueError(
                     f"第 {index} 个合集的 type 必须是 tmdb、douban 或 template"
                 )
@@ -109,7 +159,9 @@ class SourceResolver:
             if mode and mode not in {"sync", "append"}:
                 raise ValueError(f"第 {index} 个合集的 mode 必须是 sync 或 append")
 
-            if source_type in {"tmdb", "douban"} and not (url or list_id):
+            if source_type in {"tmdb", "tmdb_builtin", "douban"} and not (
+                url or list_id
+            ):
                 raise ValueError(f"第 {index} 个合集缺少 url 或 list_id")
             if source_type == "template":
                 if not name:
@@ -132,9 +184,71 @@ class SourceResolver:
     def fetch(self, spec: CollectionSpec) -> ResolvedSource:
         if spec.source_type == "tmdb":
             return self._fetch_tmdb_list(spec.url or spec.list_id or "")
+        if spec.source_type == "tmdb_builtin":
+            return self._fetch_tmdb_builtin(spec.list_id or "")
         if spec.source_type == "douban":
             return self._fetch_douban_list(spec.url or spec.list_id or "")
         return self._parse_template(spec)
+
+    @classmethod
+    def spec_from_url(cls, url: str) -> CollectionSpec:
+        """Build a source definition from a public TMDB List or Douban doulist URL."""
+
+        value = str(url or "").strip()
+        lowered = value.lower()
+        if "themoviedb.org" in lowered and "/list/" in lowered:
+            match = cls._TMDB_LIST_RE.search(value)
+            if match:
+                return CollectionSpec(source_type="tmdb", list_id=match.group(1))
+        if "douban.com" in lowered and "/doulist/" in lowered:
+            match = cls._DOUBAN_LIST_RE.search(value)
+            if match:
+                return CollectionSpec(source_type="douban", list_id=match.group(1))
+        raise ValueError(f"不支持的片单链接：{value}")
+
+    def _fetch_tmdb_builtin(self, list_key: str) -> ResolvedSource:
+        definition = next(
+            (item for item in POPULAR_TMDB_LISTS if item["value"] == list_key),
+            None,
+        )
+        if not definition:
+            raise ValueError(f"未知的热门 TMDB 片单：{list_key}")
+
+        domain = settings.TMDB_API_DOMAIN or "api.themoviedb.org"
+        url = f"https://{domain}{definition['path']}"
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": settings.USER_AGENT,
+        }
+        params: Dict[str, Any] = {"language": self._language}
+        if self._tmdb_token:
+            headers["Authorization"] = f"Bearer {self._tmdb_token}"
+        else:
+            params["api_key"] = settings.TMDB_API_KEY
+
+        media_items: List[MediaRef] = []
+        page = 1
+        while len(media_items) < self._max_items:
+            params["page"] = page
+            response = RequestUtils(
+                headers=headers, proxies=self._proxies, timeout=30
+            ).get_res(url, params=params)
+            if not response or response.status_code != 200:
+                code = response.status_code if response is not None else "无响应"
+                raise RuntimeError(f"热门 TMDB 片单请求失败：{code}")
+            payload = response.json() or {}
+            results = payload.get("results") or []
+            media_items.extend(
+                self._tmdb_items(results, default_media_type=definition["media_type"])
+            )
+            total_pages = int(payload.get("total_pages") or 1)
+            if not results or page >= total_pages:
+                break
+            page += 1
+
+        return ResolvedSource(
+            title=definition["title"], items=media_items[: self._max_items]
+        )
 
     def _fetch_tmdb_list(self, value: str) -> ResolvedSource:
         match = self._TMDB_LIST_RE.search(value)
@@ -205,11 +319,13 @@ class SourceResolver:
         )
 
     @staticmethod
-    def _tmdb_items(items: List[Dict[str, Any]]) -> List[MediaRef]:
+    def _tmdb_items(
+        items: List[Dict[str, Any]], default_media_type: Optional[str] = None
+    ) -> List[MediaRef]:
         result: List[MediaRef] = []
         seen = set()
         for item in items:
-            media_type = str(item.get("media_type") or "").lower()
+            media_type = str(item.get("media_type") or default_media_type or "").lower()
             if media_type not in {"movie", "tv"}:
                 media_type = "movie" if item.get("title") is not None else "tv"
             tmdb_id = item.get("id")

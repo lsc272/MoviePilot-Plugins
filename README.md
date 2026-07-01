@@ -1,12 +1,14 @@
 # SmartCollections（智能合集）
 
-MoviePilot V2 插件：从公开的 TMDB List、豆瓣豆列或内联模板读取电影和剧集，按 TMDB ID 精确匹配 Emby 媒体库中已有项目，并创建或更新 Emby 合集。
+MoviePilot V2 插件：从热门 TMDB 片单、热门豆瓣豆列或手动输入的公开片单链接读取电影和剧集，按 TMDB ID 精确匹配 Emby 媒体库中已有项目，并创建或更新 Emby 合集。
 
 ## 功能
 
+- 热门 TMDB 片单：直接多选本周热门、热门、高分电影或剧集。
+- 热门豆瓣豆列：直接多选内置的高分电影、冷门佳片和高分动画豆列。
+- 手动链接：每行粘贴一个公开 TMDB List 或豆瓣豆列链接，自动读取合集名称。
 - TMDB List：支持 TMDB v4 混合片单；未配置 v4 Token 时回退到 MoviePilot 的 TMDB v3 API Key。
-- 豆瓣豆列：读取公开豆列中的影视条目，通过 MoviePilot 媒体识别链转换为 TMDB ID，并缓存识别结果。
-- 自定义模板：直接使用 `movie:TMDBID` 与 `tv:TMDBID` 定义合集。
+- 豆瓣豆列：通过 MoviePilot 媒体识别链转换为 TMDB ID，并缓存识别结果。
 - Emby 精确匹配：只处理媒体库中已存在且具有相同 TMDB ID 的电影和剧集。
 - 两种更新模式：`sync` 会增删成员，使合集与片单一致；`append` 只添加新成员。
 - 支持 Cron 定时同步、立即运行、远程命令、运行记录和通知。
@@ -22,43 +24,20 @@ plugins.v2/smartcollections/
 
 将本仓库加入 MoviePilot 插件市场，或把插件目录放入 MoviePilot 的本地插件仓库后安装。插件会直接复用 MoviePilot 中已经启用的 Emby 配置，不需要再次填写 Emby 地址和 API Key。
 
-## 配置示例
+## 配置来源
 
-在“合集定义（JSON）”中填写一个数组：
+配置页面提供三种方式，可以同时使用：
 
-```json
-[
-  {
-    "name": "我的 TMDB 片单",
-    "type": "tmdb",
-    "url": "https://www.themoviedb.org/list/123456"
-  },
-  {
-    "name": "豆瓣高分电影",
-    "type": "douban",
-    "url": "https://www.douban.com/doulist/240962/",
-    "mode": "append"
-  },
-  {
-    "name": "星战与权游",
-    "type": "template",
-    "items": [
-      "movie:11",
-      "movie:1891",
-      "tv:1399"
-    ]
-  }
-]
+1. 在“热门 TMDB 片单”中多选需要的电影或剧集榜单。
+2. 在“热门豆瓣豆列”中多选需要的公开豆列。
+3. 在“手动添加”中每行粘贴一个链接，例如：
+
+```text
+https://www.themoviedb.org/list/5292-tmdb-watchlist
+https://www.douban.com/doulist/240962/
 ```
 
-每个合集支持以下字段：
-
-- `name`：Emby 合集名称。TMDB、豆瓣来源可省略，此时使用公开片单标题。
-- `type`：`tmdb`、`douban` 或 `template`。
-- `url` / `list_id`：TMDB List 或豆瓣豆列地址/ID。
-- `items`：模板条目数组，格式为 `movie:TMDBID` 或 `tv:TMDBID`；也可使用 `{"type":"movie","tmdb_id":11}`。
-- `mode`：可选，覆盖全局模式；`sync` 或 `append`。
-- `enabled`：可选，设为 `false` 可暂时跳过该合集。
+插件会自动读取公开片单标题并用作 Emby 合集名称，不需要填写 JSON。
 
 TMDB v4 Read Access Token 建议填写，以支持新版混合片单中的电影和剧集。Token 只保存在 MoviePilot 插件配置中。
 
