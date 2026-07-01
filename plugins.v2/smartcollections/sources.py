@@ -1,0 +1,329 @@
+import html
+import json
+import re
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+from app.core.config import settings
+from app.utils.http import RequestUtils
+
+
+@dataclass(frozen=True)
+class MediaRef:
+    """A source item before it is matched to an Emby library item."""
+
+    media_type: Optional[str] = None
+    tmdb_id: Optional[int] = None
+    douban_id: Optional[str] = None
+    title: Optional[str] = None
+
+
+@dataclass
+class CollectionSpec:
+    """One configured Emby collection and the source that feeds it."""
+
+    source_type: str
+    name: Optional[str] = None
+    url: Optional[str] = None
+    list_id: Optional[str] = None
+    items: List[Any] = field(default_factory=list)
+    mode: Optional[str] = None
+
+
+@dataclass
+class ResolvedSource:
+    """A source after its public list has been downloaded and parsed."""
+
+    title: Optional[str]
+    items: List[MediaRef]
+
+
+class SourceResolver:
+    """Fetch TMDB lists, public Douban doulists and inline templates."""
+
+    _TMDB_LIST_RE = re.compile(r"(?:themoviedb\.org/(?:[^/]+/)?list/)?(\d+)", re.I)
+    _DOUBAN_LIST_RE = re.compile(r"(?:douban\.com/doulist/)?(\d+)", re.I)
+    _DOUBAN_SUBJECT_RE = re.compile(
+        r"https?://movie\.douban\.com/subject/(\d+)/?", re.I
+    )
+
+    def __init__(
+        self,
+        tmdb_token: str = "",
+        language: str = "zh-CN",
+        max_items: int = 500,
+        use_proxy: bool = False,
+    ):
+        self._tmdb_token = (tmdb_token or "").strip()
+        self._language = language or "zh-CN"
+        self._max_items = max(1, min(int(max_items or 500), 5000))
+        self._proxies = settings.PROXY if use_proxy else None
+
+    @staticmethod
+    def parse_specs(raw: Any) -> List[CollectionSpec]:
+        """Parse and validate the JSON stored in the plugin configuration."""
+
+        if raw is None or raw == "":
+            return []
+        if isinstance(raw, str):
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"合集定义不是有效的 JSON：第 {exc.lineno} 行第 {exc.colno} 列"
+                ) from exc
+        else:
+            payload = raw
+
+        if isinstance(payload, dict):
+            payload = payload.get("collections")
+        if not isinstance(payload, list):
+            raise ValueError("合集定义必须是 JSON 数组")
+
+        specs: List[CollectionSpec] = []
+        for index, item in enumerate(payload, start=1):
+            if not isinstance(item, dict):
+                raise ValueError(f"第 {index} 个合集定义必须是对象")
+            if item.get("enabled") is False:
+                continue
+
+            source_type = str(item.get("type") or item.get("source") or "").lower().strip()
+            aliases = {
+                "tmdb_list": "tmdb",
+                "tmdb-list": "tmdb",
+                "doulist": "douban",
+                "豆瓣": "douban",
+                "模板": "template",
+            }
+            source_type = aliases.get(source_type, source_type)
+            if source_type not in {"tmdb", "douban", "template"}:
+                raise ValueError(
+                    f"第 {index} 个合集的 type 必须是 tmdb、douban 或 template"
+                )
+
+            name = str(item.get("name") or "").strip() or None
+            url = str(item.get("url") or "").strip() or None
+            list_id = str(item.get("list_id") or item.get("id") or "").strip() or None
+            template_items = item.get("items") or []
+            mode = str(item.get("mode") or "").lower().strip() or None
+            if mode and mode not in {"sync", "append"}:
+                raise ValueError(f"第 {index} 个合集的 mode 必须是 sync 或 append")
+
+            if source_type in {"tmdb", "douban"} and not (url or list_id):
+                raise ValueError(f"第 {index} 个合集缺少 url 或 list_id")
+            if source_type == "template":
+                if not name:
+                    raise ValueError(f"第 {index} 个模板合集缺少 name")
+                if not isinstance(template_items, list) or not template_items:
+                    raise ValueError(f"第 {index} 个模板合集缺少 items")
+
+            specs.append(
+                CollectionSpec(
+                    source_type=source_type,
+                    name=name,
+                    url=url,
+                    list_id=list_id,
+                    items=template_items,
+                    mode=mode,
+                )
+            )
+        return specs
+
+    def fetch(self, spec: CollectionSpec) -> ResolvedSource:
+        if spec.source_type == "tmdb":
+            return self._fetch_tmdb_list(spec.url or spec.list_id or "")
+        if spec.source_type == "douban":
+            return self._fetch_douban_list(spec.url or spec.list_id or "")
+        return self._parse_template(spec)
+
+    def _fetch_tmdb_list(self, value: str) -> ResolvedSource:
+        match = self._TMDB_LIST_RE.search(value)
+        if not match:
+            raise ValueError(f"无法从 {value!r} 提取 TMDB List ID")
+        list_id = match.group(1)
+
+        if self._tmdb_token:
+            try:
+                return self._fetch_tmdb_v4(list_id)
+            except Exception:
+                # Public legacy lists can still be available through v3. The caller
+                # receives the v3 error if both paths fail.
+                pass
+        return self._fetch_tmdb_v3(list_id)
+
+    def _fetch_tmdb_v4(self, list_id: str) -> ResolvedSource:
+        domain = settings.TMDB_API_DOMAIN or "api.themoviedb.org"
+        url = f"https://{domain}/4/list/{list_id}"
+        headers = {
+            "Authorization": f"Bearer {self._tmdb_token}",
+            "Accept": "application/json",
+            "User-Agent": settings.USER_AGENT,
+        }
+        title: Optional[str] = None
+        media_items: List[MediaRef] = []
+        page = 1
+
+        while len(media_items) < self._max_items:
+            response = RequestUtils(
+                headers=headers, proxies=self._proxies, timeout=30
+            ).get_res(url, params={"language": self._language, "page": page})
+            if not response or response.status_code != 200:
+                code = response.status_code if response is not None else "无响应"
+                raise RuntimeError(f"TMDB v4 List 请求失败：{code}")
+            payload = response.json() or {}
+            title = title or payload.get("name")
+            results = payload.get("results") or []
+            media_items.extend(self._tmdb_items(results))
+            total_pages = int(payload.get("total_pages") or 1)
+            if not results or page >= total_pages:
+                break
+            page += 1
+
+        return ResolvedSource(title=title, items=media_items[: self._max_items])
+
+    def _fetch_tmdb_v3(self, list_id: str) -> ResolvedSource:
+        domain = settings.TMDB_API_DOMAIN or "api.themoviedb.org"
+        url = f"https://{domain}/3/list/{list_id}"
+        response = RequestUtils(
+            ua=settings.USER_AGENT, proxies=self._proxies, timeout=30
+        ).get_res(
+            url,
+            params={
+                "api_key": settings.TMDB_API_KEY,
+                "language": self._language,
+            },
+        )
+        if not response or response.status_code != 200:
+            code = response.status_code if response is not None else "无响应"
+            raise RuntimeError(
+                f"TMDB List 请求失败：{code}；新版混合片单请配置 TMDB v4 Read Access Token"
+            )
+        payload = response.json() or {}
+        items = self._tmdb_items(payload.get("items") or [])
+        return ResolvedSource(
+            title=payload.get("name"), items=items[: self._max_items]
+        )
+
+    @staticmethod
+    def _tmdb_items(items: List[Dict[str, Any]]) -> List[MediaRef]:
+        result: List[MediaRef] = []
+        seen = set()
+        for item in items:
+            media_type = str(item.get("media_type") or "").lower()
+            if media_type not in {"movie", "tv"}:
+                media_type = "movie" if item.get("title") is not None else "tv"
+            tmdb_id = item.get("id")
+            try:
+                tmdb_id = int(tmdb_id)
+            except (TypeError, ValueError):
+                continue
+            key = (media_type, tmdb_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(
+                MediaRef(
+                    media_type=media_type,
+                    tmdb_id=tmdb_id,
+                    title=item.get("title") or item.get("name"),
+                )
+            )
+        return result
+
+    def _fetch_douban_list(self, value: str) -> ResolvedSource:
+        match = self._DOUBAN_LIST_RE.search(value)
+        if not match:
+            raise ValueError(f"无法从 {value!r} 提取豆瓣豆列 ID")
+        list_id = match.group(1)
+        url = f"https://www.douban.com/doulist/{list_id}/"
+        title: Optional[str] = None
+        subject_ids: List[str] = []
+        seen = set()
+        start = 0
+
+        while len(subject_ids) < self._max_items:
+            response = RequestUtils(
+                ua=settings.USER_AGENT,
+                proxies=self._proxies,
+                timeout=30,
+                referer="https://www.douban.com/",
+                accept_type="text/html,application/xhtml+xml",
+            ).get_res(
+                url,
+                params={
+                    "start": start,
+                    "sort": "seq",
+                    "playable": 0,
+                    "sub_type": "",
+                },
+            )
+            if not response or response.status_code != 200:
+                code = response.status_code if response is not None else "无响应"
+                raise RuntimeError(f"豆瓣豆列请求失败：{code}")
+
+            page_html = response.text or ""
+            if title is None:
+                title_match = re.search(
+                    r"<h1[^>]*>\s*<span[^>]*>(.*?)</span>",
+                    page_html,
+                    flags=re.I | re.S,
+                )
+                if title_match:
+                    title = self._clean_html(title_match.group(1))
+
+            page_ids = self._DOUBAN_SUBJECT_RE.findall(page_html)
+            new_count = 0
+            for subject_id in page_ids:
+                if subject_id in seen:
+                    continue
+                seen.add(subject_id)
+                subject_ids.append(subject_id)
+                new_count += 1
+                if len(subject_ids) >= self._max_items:
+                    break
+
+            if new_count == 0:
+                break
+            start += 25
+
+        return ResolvedSource(
+            title=title,
+            items=[MediaRef(douban_id=subject_id) for subject_id in subject_ids],
+        )
+
+    @staticmethod
+    def _clean_html(value: str) -> str:
+        return html.unescape(re.sub(r"<[^>]+>", "", value or "")).strip()
+
+    @staticmethod
+    def _parse_template(spec: CollectionSpec) -> ResolvedSource:
+        items: List[MediaRef] = []
+        seen = set()
+        for value in spec.items:
+            if isinstance(value, str):
+                match = re.fullmatch(r"\s*(movie|tv)\s*:\s*(\d+)\s*", value, re.I)
+                if not match:
+                    raise ValueError(
+                        f"模板条目 {value!r} 格式错误，应为 movie:TMDBID 或 tv:TMDBID"
+                    )
+                media_type, tmdb_id = match.group(1).lower(), int(match.group(2))
+                title = None
+            elif isinstance(value, dict):
+                media_type = str(value.get("type") or "").lower().strip()
+                try:
+                    tmdb_id = int(value.get("tmdb_id") or value.get("tmdbid"))
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"模板条目缺少有效的 tmdb_id：{value!r}") from exc
+                title = value.get("title")
+            else:
+                raise ValueError(f"不支持的模板条目：{value!r}")
+
+            if media_type not in {"movie", "tv"}:
+                raise ValueError(f"模板条目类型必须是 movie 或 tv：{value!r}")
+            key = (media_type, tmdb_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            items.append(MediaRef(media_type=media_type, tmdb_id=tmdb_id, title=title))
+
+        return ResolvedSource(title=spec.name, items=items)
