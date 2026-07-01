@@ -45,6 +45,16 @@ POPULAR_TMDB_LISTS = [
         "path": "/3/tv/top_rated",
         "media_type": "tv",
     },
+    {"title": "历届奥斯卡最佳动画长片及提名", "value": "finly_oscars_animation", "list_id": "8648843", "media_type": "movie"},
+    {"title": "历届金球奖电影精选", "value": "finly_golden_globes", "list_id": "8648849", "media_type": "movie"},
+    {"title": "历届英国电影学院奖精选", "value": "finly_bafta", "list_id": "8648848", "media_type": "movie"},
+    {"title": "戛纳电影节精选", "value": "finly_cannes", "list_id": "8648844", "media_type": "movie"},
+    {"title": "威尼斯电影节精选", "value": "finly_venice", "list_id": "8648854", "media_type": "movie"},
+    {"title": "IMDb Top 250 电影", "value": "finly_imdb_movies", "list_id": "8647021", "media_type": "movie"},
+    {"title": "IMDb Top 250 剧集", "value": "finly_imdb_tv", "list_id": "8647022", "media_type": "tv"},
+    {"title": "豆瓣电影 Top 250", "value": "finly_douban_top250", "list_id": "8647023", "media_type": "movie"},
+    {"title": "Letterboxd Top 500", "value": "finly_letterboxd_500", "list_id": "8648802", "media_type": "movie"},
+    {"title": "Criterion Collection 精选", "value": "finly_criterion", "list_id": "8649108", "media_type": "movie"},
 ]
 
 
@@ -55,6 +65,12 @@ POPULAR_DOUBAN_LISTS = [
     {"title": "豆瓣冷门佳片（上）", "value": "13922"},
     {"title": "豆瓣冷门佳片（下）", "value": "249029"},
     {"title": "豆瓣高分动画长片", "value": "223781"},
+    {"title": "豆瓣电影 Top 250", "value": "30299"},
+    {"title": "豆瓣五星电影", "value": "515203"},
+    {"title": "豆瓣高分科幻片", "value": "40435"},
+    {"title": "豆瓣高分喜剧片", "value": "110522"},
+    {"title": "豆瓣高分爱情片", "value": "213727"},
+    {"title": "豆瓣高分悬疑片", "value": "172901"},
 ]
 
 
@@ -66,6 +82,8 @@ class MediaRef:
     tmdb_id: Optional[int] = None
     douban_id: Optional[str] = None
     title: Optional[str] = None
+    year: Optional[int] = None
+    poster_url: Optional[str] = None
 
 
 @dataclass
@@ -214,6 +232,11 @@ class SourceResolver:
         if not definition:
             raise ValueError(f"未知的热门 TMDB 片单：{list_key}")
 
+        if definition.get("list_id"):
+            resolved = self._fetch_tmdb_list(str(definition["list_id"]))
+            resolved.title = definition["title"]
+            return resolved
+
         domain = settings.TMDB_API_DOMAIN or "api.themoviedb.org"
         url = f"https://{domain}{definition['path']}"
         headers = {
@@ -342,9 +365,27 @@ class SourceResolver:
                     media_type=media_type,
                     tmdb_id=tmdb_id,
                     title=item.get("title") or item.get("name"),
+                    year=SourceResolver._extract_year(
+                        item.get("release_date") or item.get("first_air_date")
+                    ),
+                    poster_url=SourceResolver._tmdb_poster(item.get("poster_path")),
                 )
             )
         return result
+
+    @staticmethod
+    def _extract_year(value: Any) -> Optional[int]:
+        match = re.search(r"(?:19|20)\d{2}", str(value or ""))
+        return int(match.group(0)) if match else None
+
+    @staticmethod
+    def _tmdb_poster(value: Any) -> Optional[str]:
+        path = str(value or "").strip()
+        if not path:
+            return None
+        if path.startswith("http://") or path.startswith("https://"):
+            return path
+        return f"https://image.tmdb.org/t/p/w342/{path.lstrip('/')}"
 
     def _fetch_douban_list(self, value: str) -> ResolvedSource:
         match = self._DOUBAN_LIST_RE.search(value)
@@ -353,11 +394,11 @@ class SourceResolver:
         list_id = match.group(1)
         url = f"https://www.douban.com/doulist/{list_id}/"
         title: Optional[str] = None
-        subject_ids: List[str] = []
+        subject_items: List[MediaRef] = []
         seen = set()
         start = 0
 
-        while len(subject_ids) < self._max_items:
+        while len(subject_items) < self._max_items:
             response = RequestUtils(
                 ua=settings.USER_AGENT,
                 proxies=self._proxies,
@@ -387,15 +428,20 @@ class SourceResolver:
                 if title_match:
                     title = self._clean_html(title_match.group(1))
 
-            page_ids = self._DOUBAN_SUBJECT_RE.findall(page_html)
+            page_items = self._parse_douban_page(page_html)
+            if not page_items:
+                page_items = [
+                    MediaRef(media_type="movie", douban_id=subject_id)
+                    for subject_id in self._DOUBAN_SUBJECT_RE.findall(page_html)
+                ]
             new_count = 0
-            for subject_id in page_ids:
-                if subject_id in seen:
+            for item in page_items:
+                if not item.douban_id or item.douban_id in seen:
                     continue
-                seen.add(subject_id)
-                subject_ids.append(subject_id)
+                seen.add(item.douban_id)
+                subject_items.append(item)
                 new_count += 1
-                if len(subject_ids) >= self._max_items:
+                if len(subject_items) >= self._max_items:
                     break
 
             if new_count == 0:
@@ -404,8 +450,57 @@ class SourceResolver:
 
         return ResolvedSource(
             title=title,
-            items=[MediaRef(douban_id=subject_id) for subject_id in subject_ids],
+            items=subject_items,
         )
+
+    @classmethod
+    def _parse_douban_page(cls, page_html: str) -> List[MediaRef]:
+        """Parse public doulist cards while retaining data useful for preview/fallback."""
+
+        blocks = re.findall(
+            r'<div\s+id="[^"]+"\s+class="doulist-item"[^>]*>'
+            r"([\s\S]*?)(?=<div\s+id=\"[^\"]+\"\s+class=\"doulist-item\"|"
+            r'<div\s+class="paginator"|$)',
+            page_html or "",
+            flags=re.I,
+        )
+        result: List[MediaRef] = []
+        for block in blocks:
+            subject_match = cls._DOUBAN_SUBJECT_RE.search(block)
+            if not subject_match:
+                continue
+            title_match = re.search(
+                r'<div\s+class="title">\s*<a[^>]*>([\s\S]*?)</a>',
+                block,
+                flags=re.I,
+            )
+            title = cls._clean_html(title_match.group(1)) if title_match else None
+            if title:
+                title = re.sub(r"^播放全片\s*", "", title).strip()
+                if re.search(r"[\u4e00-\u9fff]", title):
+                    title = re.sub(
+                        r"\s+[A-Za-z][A-Za-z0-9\s:'’.,!?&()\-]+$",
+                        "",
+                        title,
+                    ).strip()
+            year_match = re.search(r"年份:\s*((?:19|20)\d{2})", block, flags=re.I)
+            poster_match = re.search(
+                r'<div\s+class="post">[\s\S]*?<img[^>]+src="([^"]+)"',
+                block,
+                flags=re.I,
+            )
+            result.append(
+                MediaRef(
+                    media_type="movie",
+                    douban_id=subject_match.group(1),
+                    title=title,
+                    year=int(year_match.group(1)) if year_match else None,
+                    poster_url=html.unescape(poster_match.group(1))
+                    if poster_match
+                    else None,
+                )
+            )
+        return result
 
     @staticmethod
     def _clean_html(value: str) -> str:
@@ -424,13 +519,19 @@ class SourceResolver:
                     )
                 media_type, tmdb_id = match.group(1).lower(), int(match.group(2))
                 title = None
+                year = None
+                poster_url = None
             elif isinstance(value, dict):
-                media_type = str(value.get("type") or "").lower().strip()
+                media_type = str(
+                    value.get("type") or value.get("media_type") or ""
+                ).lower().strip()
                 try:
                     tmdb_id = int(value.get("tmdb_id") or value.get("tmdbid"))
                 except (TypeError, ValueError) as exc:
                     raise ValueError(f"模板条目缺少有效的 tmdb_id：{value!r}") from exc
                 title = value.get("title")
+                year = SourceResolver._extract_year(value.get("year"))
+                poster_url = value.get("poster_url") or value.get("poster")
             else:
                 raise ValueError(f"不支持的模板条目：{value!r}")
 
@@ -440,6 +541,14 @@ class SourceResolver:
             if key in seen:
                 continue
             seen.add(key)
-            items.append(MediaRef(media_type=media_type, tmdb_id=tmdb_id, title=title))
+            items.append(
+                MediaRef(
+                    media_type=media_type,
+                    tmdb_id=tmdb_id,
+                    title=title,
+                    year=year,
+                    poster_url=poster_url,
+                )
+            )
 
         return ResolvedSource(title=spec.name, items=items)

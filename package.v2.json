@@ -3,11 +3,13 @@
     "name": "智能合集",
     "description": "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。",
     "labels": "Emby,合集,TMDB,豆瓣",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "icon": "smartcollections.svg",
     "author": "lsc272",
     "level": 1,
     "history": {
+      "v0.3.0": "新增 Vue 智能合集工作台：片单目录、匹配/缺失预览、模板导入导出、批量同步及已同步合集管理；增加标题年份兜底匹配。",
+      "v0.2.1": "修复豆瓣 ID 转 TMDB 链路：改用 MoviePilot MediaChain 官方转换接口，兼容电影和剧集，并避免无媒体类型时触发空对象异常。",
       "v0.2.0": "重做来源配置：直接多选热门 TMDB 片单和热门豆列，或逐行粘贴公开片单链接，不再需要编写 JSON。",
       "v0.1.0": "首个版本：支持 TMDB List、豆瓣豆列、自定义模板和 Emby 合集增量或完全同步。"
     }

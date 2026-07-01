@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+import re
+
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from urllib.parse import urlencode
 
 
@@ -21,21 +23,70 @@ class EmbyCollectionClient:
     def build_library_index(self) -> Tuple[Dict[Tuple[str, int], str], int]:
         """Map (movie|tv, TMDB id) to Emby item id."""
 
-        index: Dict[Tuple[str, int], str] = {}
+        catalog, _, duplicate_count = self.build_library_catalog()
+        return {
+            key: str(item["id"])
+            for key, item in catalog.items()
+        }, duplicate_count
+
+    def build_library_catalog(
+        self,
+    ) -> Tuple[
+        Dict[Tuple[str, int], Dict[str, Any]],
+        Dict[Tuple[str, Optional[int]], List[Dict[str, Any]]],
+        int,
+    ]:
+        """Build exact TMDB and conservative title/year indexes for previews."""
+
+        catalog: Dict[Tuple[str, int], Dict[str, Any]] = {}
+        title_index: Dict[
+            Tuple[str, Optional[int]], List[Dict[str, Any]]
+        ] = {}
         duplicate_count = 0
         for item in self._paged_items("Movie,Series"):
             media_type = "movie" if item.get("Type") == "Movie" else "tv"
-            tmdb_id = (item.get("ProviderIds") or {}).get("Tmdb")
+            year = self._safe_year(item.get("ProductionYear"))
+            record = {
+                "id": str(item.get("Id")),
+                "name": item.get("Name"),
+                "original_title": item.get("OriginalTitle"),
+                "year": year,
+                "media_type": media_type,
+                "poster_tag": (item.get("ImageTags") or {}).get("Primary"),
+            }
+            for title in {item.get("Name"), item.get("OriginalTitle")}:
+                normalized = self.normalize_title(title)
+                if normalized:
+                    title_index.setdefault((normalized, year), []).append(record)
+
+            provider_ids = item.get("ProviderIds") or {}
+            tmdb_id = (
+                provider_ids.get("Tmdb")
+                or provider_ids.get("TMDb")
+                or provider_ids.get("TMDB")
+            )
             try:
                 tmdb_id = int(tmdb_id)
             except (TypeError, ValueError):
                 continue
             key = (media_type, tmdb_id)
-            if key in index:
+            if key in catalog:
                 duplicate_count += 1
                 continue
-            index[key] = str(item.get("Id"))
-        return index, duplicate_count
+            record["tmdb_id"] = tmdb_id
+            catalog[key] = record
+        return catalog, title_index, duplicate_count
+
+    @staticmethod
+    def normalize_title(value: Any) -> str:
+        return re.sub(r"[^0-9a-z\u4e00-\u9fff]+", "", str(value or "").lower())
+
+    @staticmethod
+    def _safe_year(value: Any) -> Optional[int]:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
 
     def find_collection(self, name: str) -> Optional[str]:
         for item in self._paged_items("BoxSet"):
@@ -84,7 +135,7 @@ class EmbyCollectionClient:
             params = {
                 "Recursive": "true",
                 "IncludeItemTypes": include_types,
-                "Fields": "ProviderIds,ProductionYear",
+                "Fields": "ProviderIds,ProductionYear,OriginalTitle,ImageTags",
                 "StartIndex": start,
                 "Limit": limit,
                 "api_key": "[APIKEY]",
@@ -162,3 +213,13 @@ class EmbyCollectionClient:
             action = "移除" if remove else "添加"
             code = response.status_code if response is not None else "无响应"
             raise RuntimeError(f"向 Emby 合集{action}成员失败：{code}")
+
+    def delete_collection(self, collection_id: str) -> None:
+        """Delete a BoxSet created or tracked by this plugin."""
+
+        params = {"api_key": "[APIKEY]"}
+        url = f"[HOST]emby/Items/{collection_id}?{urlencode(params, safe='[]')}"
+        response = self._emby.delete_data(url=url)
+        if not response or response.status_code not in {200, 202, 204}:
+            code = response.status_code if response is not None else "无响应"
+            raise RuntimeError(f"删除 Emby 合集失败：{code}")
