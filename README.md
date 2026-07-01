@@ -2,13 +2,15 @@
 
 MoviePilot V2 插件：从热门 TMDB 片单、热门豆瓣豆列或手动输入的公开片单链接读取电影和剧集，按 TMDB ID 精确匹配 Emby 媒体库中已有项目，并创建或更新 Emby 合集。
 
+当前版本：v0.2.1
+
 ## 功能
 
 - 热门 TMDB 片单：直接多选本周热门、热门、高分电影或剧集。
 - 热门豆瓣豆列：直接多选内置的高分电影、冷门佳片和高分动画豆列。
 - 手动链接：每行粘贴一个公开 TMDB List 或豆瓣豆列链接，自动读取合集名称。
 - TMDB List：支持 TMDB v4 混合片单；未配置 v4 Token 时回退到 MoviePilot 的 TMDB v3 API Key。
-- 豆瓣豆列：通过 MoviePilot 媒体识别链转换为 TMDB ID，并缓存识别结果。
+- 豆瓣豆列：通过 MoviePilot 官方 `MediaChain.get_tmdbinfo_by_doubanid` 转换为 TMDB ID，兼容电影和剧集，并缓存识别结果。
 - Emby 精确匹配：只处理媒体库中已存在且具有相同 TMDB ID 的电影和剧集。
 - 两种更新模式：`sync` 会增删成员，使合集与片单一致；`append` 只添加新成员。
 - 支持 Cron 定时同步、立即运行、远程命令、运行记录和通知。

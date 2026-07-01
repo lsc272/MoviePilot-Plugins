@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from app.chain.media import MediaChain
 from app.core.config import settings
 from app.core.event import Event, eventmanager
 from app.helper.mediaserver import MediaServerHelper
@@ -28,7 +29,7 @@ class SmartCollections(_PluginBase):
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.2.0"
+    plugin_version = "0.2.1"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -685,26 +686,61 @@ class SmartCollections(_PluginBase):
                 title=cached.get("title"),
             )
 
-        mediainfo = self.chain.recognize_media(doubanid=str(media_ref.douban_id))
-        if not mediainfo or not mediainfo.tmdb_id:
-            return None
-        media_type = (
-            "movie" if mediainfo.type == MediaType.MOVIE else "tv"
-            if mediainfo.type == MediaType.TV
-            else None
+        tmdbinfo = MediaChain().get_tmdbinfo_by_doubanid(
+            doubanid=str(media_ref.douban_id)
         )
-        if not media_type:
+        if not tmdbinfo:
+            logger.warning(
+                f"智能合集 豆瓣 ID {media_ref.douban_id} 未能匹配到 TMDB"
+            )
             return None
+
+        try:
+            tmdb_id = int(tmdbinfo.get("id") or tmdbinfo.get("tmdb_id"))
+        except (TypeError, ValueError):
+            logger.warning(
+                f"智能合集 豆瓣 ID {media_ref.douban_id} 的 TMDB 匹配结果缺少有效 ID"
+            )
+            return None
+
+        raw_media_type = tmdbinfo.get("media_type") or tmdbinfo.get("type")
+        if isinstance(raw_media_type, MediaType):
+            media_type = (
+                "movie"
+                if raw_media_type == MediaType.MOVIE
+                else "tv"
+                if raw_media_type == MediaType.TV
+                else None
+            )
+        else:
+            normalized_type = str(raw_media_type or "").strip().lower()
+            if normalized_type in {"movie", "电影"}:
+                media_type = "movie"
+            elif normalized_type in {"tv", "series", "电视剧", "剧集"}:
+                media_type = "tv"
+            elif tmdbinfo.get("title") is not None:
+                media_type = "movie"
+            elif tmdbinfo.get("name") is not None:
+                media_type = "tv"
+            else:
+                media_type = None
+        if not media_type:
+            logger.warning(
+                f"智能合集 豆瓣 ID {media_ref.douban_id} 的 TMDB 匹配结果缺少媒体类型"
+            )
+            return None
+
+        title = tmdbinfo.get("title") or tmdbinfo.get("name") or media_ref.title
         douban_cache[str(media_ref.douban_id)] = {
             "type": media_type,
-            "tmdb_id": int(mediainfo.tmdb_id),
-            "title": mediainfo.title,
+            "tmdb_id": tmdb_id,
+            "title": title,
         }
         return MediaRef(
             media_type=media_type,
-            tmdb_id=int(mediainfo.tmdb_id),
+            tmdb_id=tmdb_id,
             douban_id=media_ref.douban_id,
-            title=mediainfo.title,
+            title=title,
         )
 
     def _append_history(self, run_record: Dict[str, Any]):
