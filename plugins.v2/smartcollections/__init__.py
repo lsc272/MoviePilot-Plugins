@@ -1,5 +1,4 @@
 import datetime
-import json
 import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -16,14 +15,20 @@ from app.plugins import _PluginBase
 from app.schemas.types import EventType, MediaType, NotificationType
 
 from .emby import EmbyCollectionClient
-from .sources import CollectionSpec, MediaRef, SourceResolver
+from .sources import (
+    POPULAR_DOUBAN_LISTS,
+    POPULAR_TMDB_LISTS,
+    CollectionSpec,
+    MediaRef,
+    SourceResolver,
+)
 
 
 class SmartCollections(_PluginBase):
     plugin_name = "智能合集"
-    plugin_desc = "从 TMDB List、豆瓣豆列或自定义模板同步 Emby 合集。"
+    plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.1.0"
+    plugin_version = "0.2.0"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -40,6 +45,9 @@ class SmartCollections(_PluginBase):
     _language = "zh-CN"
     _max_items = 500
     _use_proxy = False
+    _popular_tmdb: List[str] = []
+    _popular_douban: List[str] = []
+    _manual_urls = ""
     _sources = "[]"
     _scheduler: Optional[BackgroundScheduler] = None
     _run_lock = threading.Lock()
@@ -62,6 +70,9 @@ class SmartCollections(_PluginBase):
         self._language = str(config.get("language") or "zh-CN").strip()
         self._max_items = self._safe_int(config.get("max_items"), 500, 1, 5000)
         self._use_proxy = bool(config.get("use_proxy"))
+        self._popular_tmdb = list(config.get("popular_tmdb") or [])
+        self._popular_douban = list(config.get("popular_douban") or [])
+        self._manual_urls = str(config.get("manual_urls") or "").strip()
         self._sources = config.get("sources") or "[]"
 
         if self._onlyonce:
@@ -136,27 +147,6 @@ class SmartCollections(_PluginBase):
             for conf in MediaServerHelper().get_configs().values()
             if conf.type == "emby"
         ]
-        source_example = json.dumps(
-            [
-                {
-                    "name": "我的 TMDB 片单",
-                    "type": "tmdb",
-                    "url": "https://www.themoviedb.org/list/123456",
-                },
-                {
-                    "name": "豆瓣高分电影",
-                    "type": "douban",
-                    "url": "https://www.douban.com/doulist/240962/",
-                },
-                {
-                    "name": "我的模板",
-                    "type": "template",
-                    "items": ["movie:11", "movie:1891", "tv:1399"],
-                },
-            ],
-            ensure_ascii=False,
-            indent=2,
-        )
         return [
             {
                 "component": "VForm",
@@ -327,17 +317,60 @@ class SmartCollections(_PluginBase):
                         "content": [
                             {
                                 "component": "VCol",
+                                "props": {"cols": 12, "md": 6},
+                                "content": [
+                                    {
+                                        "component": "VSelect",
+                                        "props": {
+                                            "model": "popular_tmdb",
+                                            "label": "热门 TMDB 片单",
+                                            "items": POPULAR_TMDB_LISTS,
+                                            "multiple": True,
+                                            "chips": True,
+                                            "clearable": True,
+                                            "hint": "可多选，自动创建同名 Emby 合集",
+                                            "persistent-hint": True,
+                                        },
+                                    }
+                                ],
+                            },
+                            {
+                                "component": "VCol",
+                                "props": {"cols": 12, "md": 6},
+                                "content": [
+                                    {
+                                        "component": "VSelect",
+                                        "props": {
+                                            "model": "popular_douban",
+                                            "label": "热门豆瓣豆列",
+                                            "items": POPULAR_DOUBAN_LISTS,
+                                            "multiple": True,
+                                            "chips": True,
+                                            "clearable": True,
+                                            "hint": "可多选，首次识别大型豆列会稍慢",
+                                            "persistent-hint": True,
+                                        },
+                                    }
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "component": "VRow",
+                        "content": [
+                            {
+                                "component": "VCol",
                                 "props": {"cols": 12},
                                 "content": [
                                     {
                                         "component": "VTextarea",
                                         "props": {
-                                            "model": "sources",
-                                            "label": "合集定义（JSON）",
-                                            "placeholder": source_example,
-                                            "rows": 16,
+                                            "model": "manual_urls",
+                                            "label": "手动添加 TMDB List 或豆瓣豆列链接",
+                                            "placeholder": "https://www.themoviedb.org/list/5292-tmdb-watchlist\nhttps://www.douban.com/doulist/240962/",
+                                            "rows": 5,
                                             "auto-grow": True,
-                                            "hint": "模板条目使用 movie:TMDBID 或 tv:TMDBID；单个合集可设置 mode 为 sync 或 append。",
+                                            "hint": "每行一个公开链接，合集名称将自动读取",
                                             "persistent-hint": True,
                                         },
                                     }
@@ -366,6 +399,9 @@ class SmartCollections(_PluginBase):
             "tmdb_token": "",
             "language": "zh-CN",
             "max_items": 500,
+            "popular_tmdb": [],
+            "popular_douban": [],
+            "manual_urls": "",
             "sources": "[]",
         }
 
@@ -447,6 +483,58 @@ class SmartCollections(_PluginBase):
             daemon=True,
         ).start()
 
+    def _collection_specs(self) -> List[CollectionSpec]:
+        """Build collection definitions from the three user-facing source inputs."""
+
+        specs: List[CollectionSpec] = []
+        tmdb_catalog = {item["value"]: item for item in POPULAR_TMDB_LISTS}
+        douban_catalog = {item["value"]: item for item in POPULAR_DOUBAN_LISTS}
+
+        for list_key in self._popular_tmdb:
+            definition = tmdb_catalog.get(list_key)
+            if not definition:
+                raise ValueError(f"未知的热门 TMDB 片单：{list_key}")
+            specs.append(
+                CollectionSpec(
+                    source_type="tmdb_builtin",
+                    name=definition["title"],
+                    list_id=list_key,
+                )
+            )
+
+        for list_id in self._popular_douban:
+            definition = douban_catalog.get(str(list_id))
+            if not definition:
+                raise ValueError(f"未知的热门豆瓣豆列：{list_id}")
+            specs.append(
+                CollectionSpec(
+                    source_type="douban",
+                    name=definition["title"],
+                    list_id=str(list_id),
+                )
+            )
+
+        for line in self._manual_urls.splitlines():
+            url = line.strip()
+            if url:
+                specs.append(SourceResolver.spec_from_url(url))
+
+        # v0.1.x used a JSON field. Keep it as a fallback so existing users do
+        # not lose their collections after upgrading, but prefer the new UI as
+        # soon as any new-style source is configured.
+        if not specs:
+            specs.extend(SourceResolver.parse_specs(self._sources))
+
+        deduplicated: List[CollectionSpec] = []
+        seen = set()
+        for spec in specs:
+            key = (spec.source_type, spec.list_id or spec.url or spec.name)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduplicated.append(spec)
+        return deduplicated
+
     def sync_all(self):
         if not self._run_lock.acquire(blocking=False):
             logger.warning("智能合集同步任务已在运行，本次触发已跳过")
@@ -459,7 +547,7 @@ class SmartCollections(_PluginBase):
             "collections": [],
         }
         try:
-            specs = SourceResolver.parse_specs(self._sources)
+            specs = self._collection_specs()
             if not specs:
                 raise ValueError("尚未配置任何合集定义")
 
@@ -654,6 +742,9 @@ class SmartCollections(_PluginBase):
                 "language": self._language,
                 "max_items": self._max_items,
                 "use_proxy": self._use_proxy,
+                "popular_tmdb": self._popular_tmdb,
+                "popular_douban": self._popular_douban,
+                "manual_urls": self._manual_urls,
                 "sources": self._sources,
             }
         )
