@@ -2,8 +2,10 @@ import ast
 import importlib.util
 import io
 import sys
+import tempfile
 import types
 import unittest
+import zipfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -62,13 +64,16 @@ sys.modules.update(
 sources = load_module("smartcollections_sources_test", PLUGIN / "sources.py")
 emby = load_module("smartcollections_emby_test", PLUGIN / "emby.py")
 poster = load_module("smartcollections_poster_test", PLUGIN / "poster.py")
+collection_backup = load_module(
+    "smartcollections_collection_backup_test", PLUGIN / "collection_backup.py"
+)
 
 
 class FakeResponse:
-    def __init__(self, payload, status_code=200):
+    def __init__(self, payload, status_code=200, content=b"{}"):
         self._payload = payload
         self.status_code = status_code
-        self.content = b"{}"
+        self.content = content
 
     def json(self):
         return self._payload
@@ -82,6 +87,37 @@ class FakeEmby:
         self._apikey = "test-key"
 
     def get_data(self, url):
+        if "IncludeItemTypes=BoxSet" in url:
+            return FakeResponse(
+                {
+                    "TotalRecordCount": 2,
+                    "Items": [
+                        {
+                            "Id": "box1",
+                            "Type": "BoxSet",
+                            "Name": "测试合集",
+                            "SortName": "CSHJ",
+                            "Overview": "合集简介",
+                            "ProviderIds": {"Tmdb": "10"},
+                            "Tags": ["测试"],
+                            "ImageTags": {"Primary": "cover1"},
+                        },
+                        {
+                            "Id": "box2",
+                            "Type": "BoxSet",
+                            "Name": "智能合集",
+                            "ProviderIds": {},
+                            "ImageTags": {},
+                        },
+                    ],
+                }
+            )
+        if "ParentId=box1" in url:
+            return FakeResponse({"Items": [{"Id": "m1"}]})
+        if "/Images/Primary" in url:
+            return FakeResponse({}, content=b"poster-bytes")
+        if "/Items/box1?" in url:
+            return FakeResponse({"Id": "box1", "Name": "测试合集", "Type": "BoxSet"})
         return FakeResponse(
             {
                 "TotalRecordCount": 2,
@@ -341,6 +377,94 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertIn("item?id=m1", client.get_item_url("m1"))
         client.set_collection_poster("box1", b"jpeg-bytes")
         self.assertIn("Images/Primary", fake.uploaded[-1][0])
+
+        collections = client.list_collections()
+        self.assertEqual([item["id"] for item in collections], ["box1", "box2"])
+        self.assertEqual(client.get_collection_item_ids("box1"), {"m1"})
+        self.assertEqual(client.get_collection_poster("box1"), b"poster-bytes")
+        restored = client.restore_collection(
+            record={
+                "name": "测试合集",
+                "sort_name": "CSHJ",
+                "overview": "恢复简介",
+                "provider_ids": {"Tmdb": "10"},
+                "tags": ["恢复"],
+                "item_ids": ["m1", "m2"],
+            },
+            poster=b"restored-poster",
+            existing_id="box1",
+        )
+        self.assertFalse(restored.created)
+        self.assertEqual(restored.added, 1)
+        self.assertTrue(any("Collections/box1/Items" in item[0] for item in fake.uploaded))
+        self.assertTrue(any("Items/box1?" in item[0] for item in fake.uploaded))
+
+    def test_other_collection_backup_cleanup_and_restore(self):
+        class FakeBackupClient:
+            def __init__(self):
+                self.collections = [
+                    {"id": "legacy1", "name": "旧合集", "image_tag": "cover"},
+                    {"id": "smart1", "name": "智能合集", "image_tag": None},
+                ]
+                self.deleted = []
+                self.restored = []
+
+            def list_collections(self):
+                return list(self.collections)
+
+            def get_collection_item_ids(self, collection_id):
+                return {"m1", "m2"} if collection_id == "legacy1" else {"m3"}
+
+            def get_collection_poster(self, collection_id):
+                return b"poster" if collection_id == "legacy1" else None
+
+            def delete_collection(self, collection_id):
+                self.deleted.append(collection_id)
+                self.collections = [
+                    item for item in self.collections if item["id"] != collection_id
+                ]
+
+            def restore_collection(self, record, poster=None, existing_id=None):
+                self.restored.append((record, poster, existing_id))
+                return types.SimpleNamespace(
+                    collection_id=existing_id or "restored1",
+                    created=not bool(existing_id),
+                    added=len(record.get("item_ids") or []),
+                )
+
+        fake = FakeBackupClient()
+        with tempfile.TemporaryDirectory() as directory:
+            manager = collection_backup.EmbyCollectionBackupManager(Path(directory), fake)
+            backup = manager.create_backup({"smart1"}, "测试 Emby")
+            self.assertEqual(backup["collection_count"], 1)
+            with zipfile.ZipFile(Path(directory) / backup["backup_id"], "r") as archive:
+                self.assertIn("manifest.json", archive.namelist())
+                self.assertIn("posters/legacy1.jpg", archive.namelist())
+
+            cleanup = manager.backup_and_cleanup({"smart1"}, "测试 Emby")
+            self.assertEqual(cleanup["deleted"], 1)
+            self.assertEqual(fake.deleted, ["legacy1"])
+            self.assertEqual(fake.collections[0]["id"], "smart1")
+
+            restored = manager.restore_backup(backup["backup_id"], {"smart1"})
+            self.assertEqual(restored["created"], 1)
+            self.assertEqual(restored["failed"], 0)
+            self.assertEqual(fake.restored[-1][1], b"poster")
+            with self.assertRaises(ValueError):
+                manager.restore_backup("../outside.zip", {"smart1"})
+
+        class FailingBackupClient(FakeBackupClient):
+            def get_collection_item_ids(self, collection_id):
+                raise RuntimeError("模拟备份失败")
+
+        failing = FailingBackupClient()
+        with tempfile.TemporaryDirectory() as directory:
+            manager = collection_backup.EmbyCollectionBackupManager(
+                Path(directory), failing
+            )
+            with self.assertRaises(RuntimeError):
+                manager.backup_and_cleanup({"smart1"}, "测试 Emby")
+            self.assertEqual(failing.deleted, [])
 
     def test_collection_poster_generate_and_normalize(self):
         source_images = [

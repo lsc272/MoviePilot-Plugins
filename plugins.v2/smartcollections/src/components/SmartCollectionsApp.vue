@@ -14,7 +14,7 @@ const error = ref('')
 const notice = ref('')
 const tab = ref('sources')
 const sourceTab = ref('tmdb')
-const status = ref({ catalog: { tmdb: [], douban: [] }, templates: [], collections: [], history: [] })
+const status = ref({ catalog: { tmdb: [], douban: [] }, templates: [], collections: [], collection_tools: {}, history: [] })
 const selectedSources = ref([])
 const manualUrl = ref('')
 const preview = ref(null)
@@ -33,11 +33,20 @@ const subscribedKeys = ref([])
 const posterDialog = ref(false)
 const posterCollection = ref(null)
 const posterFile = ref(null)
+const cleanupDialog = ref(false)
+const cleanupConfirmed = ref(false)
+const selectedBackupId = ref('')
 
 const pluginBase = computed(() => `plugin/${props.pluginId || 'SmartCollections'}`)
 const sourceItems = computed(() => status.value.catalog?.[sourceTab.value] || [])
 const matchedItems = computed(() => (preview.value?.items || []).filter(item => item.matched))
 const visiblePreviewItems = computed(() => (preview.value?.items || []).slice(0, 300))
+const collectionTools = computed(() => status.value.collection_tools || {})
+const collectionInventory = computed(() => collectionTools.value.inventory || { total: 0, managed: 0, other: 0 })
+const backupOptions = computed(() => (collectionTools.value.backups || []).map(item => ({
+  ...item,
+  title: `${item.created_at || item.id} · ${item.collection_count || 0} 个 · ${formatBytes(item.size)}`,
+})))
 const allCurrentSelected = computed(() => {
   const keys = sourceItems.value.map(item => item.id)
   return keys.length > 0 && keys.every(key => selectedSources.value.includes(key))
@@ -58,6 +67,10 @@ async function loadStatus() {
   clearMessages()
   try {
     status.value = assertResponse(await props.api.get(`${pluginBase.value}/status`)) || status.value
+    const backups = status.value.collection_tools?.backups || []
+    if (backups.length && !backups.some(item => item.id === selectedBackupId.value)) {
+      selectedBackupId.value = backups[0].id
+    }
   } catch (err) {
     error.value = err?.message || '页面数据加载失败'
   } finally {
@@ -320,6 +333,70 @@ async function uploadCollectionPoster() {
   }
 }
 
+function formatBytes(value) {
+  const size = Number(value || 0)
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+function wait(ms) {
+  return new Promise(resolve => window.setTimeout(resolve, ms))
+}
+
+async function waitForCollectionTool() {
+  for (let attempt = 0; attempt < 3600; attempt += 1) {
+    const data = assertResponse(await props.api.get(`${pluginBase.value}/collections/tools/status`)) || {}
+    status.value.collection_tools = data
+    if (!data.running) {
+      if (data.error) throw new Error(data.error)
+      await loadStatus()
+      return data
+    }
+    await wait(1000)
+  }
+  throw new Error('合集任务等待超时；任务可能仍在后台运行')
+}
+
+async function startCollectionTool(action, payload = {}) {
+  actionLoading.value = `collection-tool:${action}`
+  clearMessages()
+  try {
+    assertResponse(await props.api.post(`${pluginBase.value}/collections/tools/${action}`, payload))
+    const result = await waitForCollectionTool()
+    notice.value = result.message || '合集任务已完成'
+  } catch (err) {
+    error.value = err?.message || '合集任务执行失败'
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
+async function backupOtherCollections() {
+  await startCollectionTool('backup')
+}
+
+async function restoreOtherCollections() {
+  const backup = backupOptions.value.find(item => item.id === selectedBackupId.value)
+  if (!backup) {
+    error.value = '请先选择一个合集备份'
+    return
+  }
+  if (!window.confirm(`从 ${backup.created_at} 的备份恢复 ${backup.collection_count} 个合集？\n恢复采用合并方式，不会删除智能合集或现有成员。`)) return
+  await startCollectionTool('restore', { backup_id: backup.id })
+}
+
+function openCleanupDialog() {
+  cleanupConfirmed.value = false
+  cleanupDialog.value = true
+}
+
+async function cleanupOtherCollections() {
+  cleanupDialog.value = false
+  await startCollectionTool('cleanup', { confirm_count: collectionInventory.value.other })
+  cleanupConfirmed.value = false
+}
+
 function tmdbLink(item) {
   if (!item.tmdb_id) return ''
   return `https://www.themoviedb.org/${item.media_type === 'tv' ? 'tv' : 'movie'}/${item.tmdb_id}`
@@ -443,6 +520,71 @@ onMounted(loadStatus)
       </VWindowItem>
 
       <VWindowItem value="collections">
+        <VCard rounded="xl" variant="outlined" class="mb-5 collection-tools-card">
+          <VCardTitle class="d-flex flex-wrap align-center ga-3 pa-5">
+            <div>
+              <div class="text-h6">Emby 其他合集管理</div>
+              <div class="text-body-2 text-medium-emphasis">“其他合集”指未由智能合集管理的 Emby 合集；操作始终保留智能合集。</div>
+            </div>
+            <VSpacer />
+            <VChip color="primary" variant="tonal" prepend-icon="mdi-shield-check">安全备份优先</VChip>
+          </VCardTitle>
+          <VDivider />
+          <VCardText class="pa-5">
+            <VAlert v-if="collectionTools.available === false" type="warning" variant="tonal" class="mb-4">
+              {{ collectionTools.inventory_error || '暂时无法读取 Emby 合集' }}
+            </VAlert>
+            <VRow v-else class="mb-2">
+              <VCol cols="4"><div class="text-caption text-medium-emphasis">全部合集</div><div class="text-h5">{{ collectionInventory.total }}</div></VCol>
+              <VCol cols="4"><div class="text-caption text-medium-emphasis">智能合集</div><div class="text-h5 text-success">{{ collectionInventory.managed }}</div></VCol>
+              <VCol cols="4"><div class="text-caption text-medium-emphasis">其他合集</div><div class="text-h5 text-warning">{{ collectionInventory.other }}</div></VCol>
+            </VRow>
+            <VAlert type="info" variant="tonal" class="mb-4">
+              备份包含合集名称、简介、外部 ID、成员和压缩主海报，保留最近 5 份。恢复只合并缺失内容，不移除现有成员。
+            </VAlert>
+            <div v-if="collectionTools.running" class="mb-4">
+              <div class="d-flex justify-space-between text-body-2 mb-2"><span>{{ collectionTools.message }}</span><span>{{ collectionTools.progress || 0 }}%</span></div>
+              <VProgressLinear :model-value="collectionTools.progress || 0" color="primary" rounded height="8" />
+            </div>
+            <VSelect
+              v-model="selectedBackupId"
+              :items="backupOptions"
+              item-title="title"
+              item-value="id"
+              label="选择要恢复的本地备份"
+              :disabled="!backupOptions.length || collectionTools.running"
+              hide-details
+            />
+          </VCardText>
+          <VCardActions class="flex-wrap px-5 pb-5">
+            <VBtn
+              color="primary"
+              variant="tonal"
+              prepend-icon="mdi-content-save-outline"
+              :disabled="collectionTools.running || collectionInventory.other < 1"
+              :loading="actionLoading === 'collection-tool:backup'"
+              @click="backupOtherCollections"
+            >备份其他合集</VBtn>
+            <VBtn
+              color="success"
+              variant="tonal"
+              prepend-icon="mdi-backup-restore"
+              :disabled="collectionTools.running || !selectedBackupId"
+              :loading="actionLoading === 'collection-tool:restore'"
+              @click="restoreOtherCollections"
+            >恢复所选备份</VBtn>
+            <VSpacer />
+            <VBtn
+              color="error"
+              variant="tonal"
+              prepend-icon="mdi-delete-sweep-outline"
+              :disabled="collectionTools.running || collectionInventory.other < 1"
+              :loading="actionLoading === 'collection-tool:cleanup'"
+              @click="openCleanupDialog"
+            >清理其他合集（{{ collectionInventory.other }}）</VBtn>
+          </VCardActions>
+        </VCard>
+
         <div class="text-h6 mb-1">已同步合集</div>
         <div class="text-body-2 text-medium-emphasis mb-4">重新同步来源，或同时删除管理记录和 Emby 合集。</div>
         <VRow v-if="status.collections?.length">
@@ -559,6 +701,25 @@ onMounted(loadStatus)
       <VCard title="导入模板 JSON" rounded="xl">
         <VCardText><VTextarea v-model="importText" rows="12" label="粘贴模板 JSON" /></VCardText>
         <VCardActions><VSpacer /><VBtn variant="text" @click="importDialog = false">取消</VBtn><VBtn color="primary" @click="importTemplates">导入</VBtn></VCardActions>
+      </VCard>
+    </VDialog>
+
+    <VDialog v-model="cleanupDialog" max-width="620" persistent>
+      <VCard rounded="xl">
+        <VCardTitle class="pa-5 text-error">确认清理其他 Emby 合集</VCardTitle>
+        <VDivider />
+        <VCardText class="pa-5">
+          <VAlert type="error" variant="tonal" class="mb-4">
+            将清理 {{ collectionInventory.other }} 个非智能合集。插件会先创建一份包含成员和海报的新备份；智能合集不会被删除。
+          </VAlert>
+          <div class="text-body-2 text-medium-emphasis mb-3">恢复入口会一直保留在“Emby 其他合集管理”中，默认使用合并恢复。</div>
+          <VCheckbox v-model="cleanupConfirmed" color="error" label="我已理解操作范围，并确认先自动备份再清理" hide-details />
+        </VCardText>
+        <VCardActions class="px-5 pb-5">
+          <VSpacer />
+          <VBtn variant="text" @click="cleanupDialog = false">取消</VBtn>
+          <VBtn color="error" :disabled="!cleanupConfirmed" prepend-icon="mdi-delete-sweep" @click="cleanupOtherCollections">自动备份并清理</VBtn>
+        </VCardActions>
       </VCard>
     </VDialog>
 

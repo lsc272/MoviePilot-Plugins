@@ -23,6 +23,7 @@ from app.plugins import _PluginBase
 from app.scheduler import Scheduler
 from app.schemas.types import EventType, MediaType, NotificationType, SystemConfigKey
 
+from .collection_backup import EmbyCollectionBackupManager
 from .emby import EmbyCollectionClient
 from .poster import CollectionPosterBuilder
 from .sources import (
@@ -72,6 +73,17 @@ class SmartCollections(_PluginBase):
         self._run_lock = threading.Lock()
         self._preview_lock = threading.RLock()
         self._preview_cache: Dict[str, Dict[str, Any]] = {}
+        self._collection_tools_lock = threading.Lock()
+        self._collection_tools_status_lock = threading.RLock()
+        self._collection_tools_status: Dict[str, Any] = {
+            "running": False,
+            "action": None,
+            "progress": 0,
+            "message": "",
+            "result": None,
+            "error": None,
+            "inventory": None,
+        }
 
     def init_plugin(self, config: dict = None):
         self.stop_service()
@@ -219,6 +231,34 @@ class SmartCollections(_PluginBase):
                 "methods": ["POST"],
                 "auth": "bear",
                 "summary": "删除已管理合集",
+            },
+            {
+                "path": "/collections/tools/status",
+                "endpoint": self.api_collection_tools_status,
+                "methods": ["GET"],
+                "auth": "bear",
+                "summary": "查询 Emby 其他合集与备份状态",
+            },
+            {
+                "path": "/collections/tools/backup",
+                "endpoint": self.api_collection_tools_backup,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "备份非智能合集",
+            },
+            {
+                "path": "/collections/tools/restore",
+                "endpoint": self.api_collection_tools_restore,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "恢复非智能合集备份",
+            },
+            {
+                "path": "/collections/tools/cleanup",
+                "endpoint": self.api_collection_tools_cleanup,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "自动备份后清理非智能合集",
             },
             {
                 "path": "/subscribe",
@@ -611,6 +651,9 @@ class SmartCollections(_PluginBase):
                 "catalog": self._source_catalog(),
                 "templates": self._load_templates(),
                 "collections": collections,
+                "collection_tools": self._collection_tools_snapshot(
+                    refresh_inventory=True
+                ),
                 "history": self.get_data("history") or [],
                 "running": self._run_lock.locked(),
                 "server": self._emby_server,
@@ -813,6 +856,170 @@ class SmartCollections(_PluginBase):
             return {"success": True, "message": "合集记录已删除"}
         except Exception as exc:
             return {"success": False, "message": str(exc)}
+
+    def api_collection_tools_status(self) -> Dict[str, Any]:
+        return {
+            "success": True,
+            "data": self._collection_tools_snapshot(refresh_inventory=True),
+        }
+
+    def api_collection_tools_backup(self) -> Dict[str, Any]:
+        return self._start_collection_tool("backup", {})
+
+    def api_collection_tools_restore(
+        self, payload: dict = Body(...)
+    ) -> Dict[str, Any]:
+        backup_id = str((payload or {}).get("backup_id") or "").strip()
+        if not backup_id:
+            try:
+                backups = self._collection_backup_manager().list_backups()
+            except Exception as exc:
+                return {"success": False, "message": str(exc)}
+            backup_id = str(backups[0]["id"]) if backups else ""
+        if not backup_id:
+            return {"success": False, "message": "还没有可恢复的合集备份"}
+        return self._start_collection_tool(
+            "restore", {"backup_id": backup_id}
+        )
+
+    def api_collection_tools_cleanup(
+        self, payload: dict = Body(...)
+    ) -> Dict[str, Any]:
+        try:
+            expected = int((payload or {}).get("confirm_count"))
+        except (TypeError, ValueError):
+            return {"success": False, "message": "请先确认待清理合集数量"}
+        try:
+            inventory = self._collection_backup_manager().inventory(
+                self._managed_emby_collection_ids()
+            )
+        except Exception as exc:
+            return {"success": False, "message": str(exc)}
+        current = int(inventory.get("other") or 0)
+        if current <= 0:
+            return {"success": False, "message": "当前没有需要清理的其他合集"}
+        if expected != current:
+            return {
+                "success": False,
+                "message": f"合集数量已变化：当前为 {current} 个，请刷新后重新确认",
+            }
+        return self._start_collection_tool(
+            "cleanup", {"confirm_count": current}
+        )
+
+    def _start_collection_tool(
+        self, action: str, payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if not self._collection_tools_lock.acquire(blocking=False):
+            return {"success": False, "message": "合集备份或恢复任务正在运行"}
+        if not self._run_lock.acquire(blocking=False):
+            self._collection_tools_lock.release()
+            return {"success": False, "message": "智能合集同步任务正在运行，请稍后再试"}
+        labels = {
+            "backup": "备份其他合集",
+            "restore": "恢复其他合集",
+            "cleanup": "备份并清理其他合集",
+        }
+        with self._collection_tools_status_lock:
+            inventory = self._collection_tools_status.get("inventory")
+            self._collection_tools_status = {
+                "running": True,
+                "action": action,
+                "progress": 0,
+                "message": f"正在准备{labels.get(action, '合集任务')}...",
+                "result": None,
+                "error": None,
+                "inventory": inventory,
+            }
+        try:
+            threading.Thread(
+                target=self._run_collection_tool,
+                args=(action, payload),
+                name=f"SmartCollections-{action}",
+                daemon=True,
+            ).start()
+        except Exception as exc:
+            self._run_lock.release()
+            self._collection_tools_lock.release()
+            with self._collection_tools_status_lock:
+                self._collection_tools_status.update(
+                    {"running": False, "error": str(exc), "message": "合集任务启动失败"}
+                )
+            return {"success": False, "message": str(exc)}
+        return {
+            "success": True,
+            "data": {"action": action},
+            "message": f"{labels.get(action, '合集任务')}已启动",
+        }
+
+    def _run_collection_tool(
+        self, action: str, payload: Dict[str, Any]
+    ) -> None:
+        try:
+            manager = self._collection_backup_manager()
+            protected_ids = self._managed_emby_collection_ids()
+
+            def update_progress(done: int, total: int, message: str) -> None:
+                value = round(done / max(1, total) * 100, 1)
+                with self._collection_tools_status_lock:
+                    self._collection_tools_status.update(
+                        {"progress": min(100, value), "message": message}
+                    )
+
+            if action == "backup":
+                result = manager.create_backup(
+                    protected_ids=protected_ids,
+                    server_name=self._emby_server or "Emby",
+                    progress=update_progress,
+                )
+                message = f"已备份 {result.get('collection_count', 0)} 个其他合集"
+            elif action == "restore":
+                result = manager.restore_backup(
+                    backup_id=str(payload.get("backup_id") or ""),
+                    protected_ids=protected_ids,
+                    progress=update_progress,
+                )
+                message = (
+                    f"恢复完成：新建 {result.get('created', 0)}，"
+                    f"合并 {result.get('merged', 0)}，失败 {result.get('failed', 0)}"
+                )
+            elif action == "cleanup":
+                result = manager.backup_and_cleanup(
+                    protected_ids=protected_ids,
+                    server_name=self._emby_server or "Emby",
+                    progress=update_progress,
+                )
+                message = (
+                    f"已自动备份并清理 {result.get('deleted', 0)} 个其他合集，"
+                    f"失败 {result.get('failed', 0)}"
+                )
+            else:
+                raise ValueError("未知的合集工具任务")
+            inventory = manager.inventory(protected_ids)
+            with self._collection_tools_status_lock:
+                self._collection_tools_status.update(
+                    {
+                        "running": False,
+                        "progress": 100,
+                        "message": message,
+                        "result": result,
+                        "error": None,
+                        "inventory": inventory,
+                    }
+                )
+        except Exception as exc:
+            logger.exception(f"智能合集 Emby 合集工具执行失败：{exc}")
+            with self._collection_tools_status_lock:
+                self._collection_tools_status.update(
+                    {
+                        "running": False,
+                        "message": "合集任务执行失败",
+                        "error": str(exc),
+                    }
+                )
+        finally:
+            self._run_lock.release()
+            self._collection_tools_lock.release()
 
     def api_subscribe(self, payload: dict = Body(...)) -> Dict[str, Any]:
         payload = payload or {}
@@ -1029,6 +1236,39 @@ class SmartCollections(_PluginBase):
         if service.instance.is_inactive():
             raise RuntimeError("Emby 服务器当前未连接")
         return EmbyCollectionClient(service)
+
+    def _managed_emby_collection_ids(self) -> List[str]:
+        return [
+            str(item.get("emby_collection_id"))
+            for item in self._load_managed_collections()
+            if item.get("emby_collection_id")
+        ]
+
+    def _collection_backup_manager(self) -> EmbyCollectionBackupManager:
+        return EmbyCollectionBackupManager(
+            backup_root=self.get_data_path() / "collection_backups",
+            client=self._emby_client(),
+        )
+
+    def _collection_tools_snapshot(
+        self, refresh_inventory: bool = False
+    ) -> Dict[str, Any]:
+        with self._collection_tools_status_lock:
+            snapshot = dict(self._collection_tools_status)
+        try:
+            manager = self._collection_backup_manager()
+            snapshot["backups"] = manager.list_backups()
+            if refresh_inventory and not snapshot.get("running"):
+                inventory = manager.inventory(self._managed_emby_collection_ids())
+                snapshot["inventory"] = inventory
+                with self._collection_tools_status_lock:
+                    self._collection_tools_status["inventory"] = inventory
+            snapshot["available"] = True
+        except Exception as exc:
+            snapshot.setdefault("backups", [])
+            snapshot["available"] = False
+            snapshot["inventory_error"] = str(exc)
+        return snapshot
 
     def _preview_context(self) -> Dict[str, Any]:
         emby = self._emby_client()
