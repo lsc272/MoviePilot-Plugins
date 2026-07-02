@@ -243,7 +243,9 @@ async function subscribeItem(item) {
     })
     const result = assertResponse(response) || {}
     subscribedKeys.value = [...new Set([...subscribedKeys.value, item.key])]
-    notice.value = result.already_exists ? `「${item.title}」已经订阅` : `已订阅「${item.title}」`
+    notice.value = result.already_exists
+      ? `「${item.title}」已经订阅，已立即搜索资源`
+      : `已订阅「${item.title}」并立即搜索资源`
   } catch (err) {
     error.value = err?.message || '添加订阅失败'
   } finally {
@@ -383,6 +385,15 @@ onMounted(loadStatus)
                     </div>
                   </VCardText>
                   <VCardActions class="px-4 pb-4">
+                    <VBtn
+                      v-if="source.url"
+                      :href="source.url"
+                      target="_blank"
+                      rel="noopener"
+                      size="small"
+                      variant="text"
+                      prepend-icon="mdi-open-in-new"
+                    >来源</VBtn>
                     <VSpacer />
                     <VBtn size="small" variant="tonal" prepend-icon="mdi-eye" :loading="actionLoading === `preview:${source.id}`" @click="runPreview(source)">预览匹配</VBtn>
                   </VCardActions>
@@ -443,6 +454,9 @@ onMounted(loadStatus)
                   <div class="flex-grow-1">
                     <div class="text-h6">{{ collection.name }}</div>
                     <div class="text-body-2 text-medium-emphasis">{{ collection.source }} · 最近同步 {{ collection.last_sync_at }}</div>
+                    <a v-if="collection.source_url" :href="collection.source_url" target="_blank" rel="noopener" class="source-link text-caption">
+                      <VIcon icon="mdi-link-variant" size="small" class="me-1" />查看片单来源
+                    </a>
                   </div>
                   <VChip color="success" variant="tonal">{{ collection.matched_count }}/{{ collection.total_count }}</VChip>
                 </div>
@@ -469,6 +483,9 @@ onMounted(loadStatus)
           <div class="flex-grow-1">
             <div class="text-h6">{{ preview.title }}</div>
             <div class="text-body-2 text-medium-emphasis">共 {{ preview.total_count }} · 电影 {{ preview.movie_count }} · 剧集 {{ preview.tv_count }} · Emby 已有 {{ preview.matched_count }} · 缺失 {{ preview.missing_count }}</div>
+            <a v-if="preview.source_url" :href="preview.source_url" target="_blank" rel="noopener" class="source-link text-caption">
+              <VIcon icon="mdi-open-in-new" size="small" class="me-1" />{{ preview.source_url }}
+            </a>
           </div>
           <VTextField v-model="collectionName" label="合集名称" density="compact" hide-details class="collection-name" />
           <VBtn color="success" prepend-icon="mdi-folder-plus" :disabled="!selectedPreviewKeys.length" :loading="actionLoading === 'sync-preview'" @click="syncPreview">同步至 Emby（{{ selectedPreviewKeys.length }}）</VBtn>
@@ -560,7 +577,7 @@ onMounted(loadStatus)
         <VCardTitle class="pa-5">设置「{{ posterCollection?.name }}」合集海报</VCardTitle>
         <VDivider />
         <VCardText class="pa-5">
-          <VAlert type="info" variant="tonal" class="mb-5">自动生成会使用片单中的前六张海报拼成竖版封面；也可以上传自己的图片覆盖。</VAlert>
+          <VAlert type="info" variant="tonal" class="mb-5">自动生成会使用片单中的前四张完整海报、柔化背景和渐变标题生成竖版封面；也可以上传自己的图片覆盖。</VAlert>
           <VBtn
             block
             size="large"
@@ -601,6 +618,8 @@ onMounted(loadStatus)
 .poster-clickable:hover { transform: scale(1.08); }
 .item-link { color: rgb(var(--v-theme-primary)); text-decoration: none; }
 .item-link:hover { text-decoration: underline; }
+.source-link { display: inline-flex; align-items: center; color: rgb(var(--v-theme-primary)); text-decoration: none; margin-top: 4px; word-break: break-all; }
+.source-link:hover { text-decoration: underline; }
 .emby-link { color: rgb(var(--v-theme-success)); text-decoration: none; font-weight: 600; }
 .emby-link:hover { text-decoration: underline; }
 @media (max-width: 700px) {

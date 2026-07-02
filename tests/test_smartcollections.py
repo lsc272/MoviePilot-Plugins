@@ -142,11 +142,37 @@ class SmartCollectionsTests(unittest.TestCase):
             def exception(self, *_args, **_kwargs):
                 pass
 
+        class SystemConfigKey(Enum):
+            SubscribeFilterRuleGroups = "SubscribeFilterRuleGroups"
+
+        class FakeSystemConfigOper:
+            def get(self, key):
+                self.assert_key = key
+                return ["只要x265"]
+
+        class FakeScheduler:
+            calls = []
+
+            def start(self, **kwargs):
+                type(self).calls.append(kwargs)
+
+        class FakeThread:
+            def __init__(self, target, kwargs, **_options):
+                self.target = target
+                self.kwargs = kwargs
+
+            def start(self):
+                self.target(**self.kwargs)
+
         namespace = {
             "Any": Any,
             "Dict": Dict,
             "MediaType": MediaType,
             "SubscribeChain": FakeSubscribeChain,
+            "Scheduler": FakeScheduler,
+            "SystemConfigOper": FakeSystemConfigOper,
+            "SystemConfigKey": SystemConfigKey,
+            "threading": types.SimpleNamespace(Thread=FakeThread),
             "logger": FakeLogger(),
             "Body": lambda *args, **kwargs: None,
         }
@@ -163,6 +189,17 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertEqual(result["data"]["subscription_id"], 42)
         self.assertEqual(FakeSubscribeChain.kwargs["tmdbid"], 101)
         self.assertFalse(FakeSubscribeChain.kwargs["message"])
+        self.assertEqual(FakeSubscribeChain.kwargs["filter_groups"], ["只要x265"])
+        self.assertTrue(result["data"]["search_started"])
+        self.assertEqual(
+            FakeScheduler.calls[-1],
+            {
+                "job_id": "subscribe_search",
+                "sid": 42,
+                "state": None,
+                "manual": True,
+            },
+        )
 
     def test_douban_conversion_uses_official_media_chain(self):
         source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
@@ -269,6 +306,29 @@ class SmartCollectionsTests(unittest.TestCase):
         )
         self.assertEqual((parsed.items[0].media_type, parsed.items[0].tmdb_id), ("tv", 202))
 
+    def test_catalog_sources_have_canonical_urls_and_correct_oscar_title(self):
+        oscar = next(
+            item
+            for item in sources.POPULAR_TMDB_LISTS
+            if item.get("list_id") == "8648843"
+        )
+        self.assertEqual(oscar["title"], "奥斯卡历届最佳影片")
+        self.assertEqual(oscar["url"], "https://www.themoviedb.org/list/8648843")
+        animation = next(
+            item
+            for item in sources.POPULAR_TMDB_LISTS
+            if item.get("list_id") == "8649225"
+        )
+        self.assertIn("动画长片", animation["title"])
+        self.assertEqual(
+            sources.SourceResolver.source_url(
+                sources.CollectionSpec(
+                    source_type="tmdb_builtin", list_id=oscar["value"]
+                )
+            ),
+            oscar["url"],
+        )
+
     def test_emby_catalog_supports_exact_and_title_indexes(self):
         fake = FakeEmby()
         client = emby.EmbyCollectionClient(types.SimpleNamespace(instance=fake))
@@ -297,6 +357,11 @@ class SmartCollectionsTests(unittest.TestCase):
             self.assertEqual(image.size, (1000, 1500))
         normalized = poster.CollectionPosterBuilder.normalize_upload(content)
         self.assertTrue(normalized.startswith(b"\xff\xd8"))
+        contained = poster.CollectionPosterBuilder._contain(source_images[0], 407, 439)
+        self.assertEqual(contained.size, (293, 439))
+        self.assertTrue(
+            (PLUGIN / "assets" / "fonts" / "ZCOOLXiaoWei-Regular.ttf").exists()
+        )
 
 
 if __name__ == "__main__":

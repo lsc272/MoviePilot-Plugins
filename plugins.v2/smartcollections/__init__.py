@@ -16,10 +16,12 @@ from app.chain.media import MediaChain
 from app.chain.subscribe import SubscribeChain
 from app.core.config import settings
 from app.core.event import Event, eventmanager
+from app.db.systemconfig_oper import SystemConfigOper
 from app.helper.mediaserver import MediaServerHelper
 from app.log import logger
 from app.plugins import _PluginBase
-from app.schemas.types import EventType, MediaType, NotificationType
+from app.scheduler import Scheduler
+from app.schemas.types import EventType, MediaType, NotificationType, SystemConfigKey
 
 from .emby import EmbyCollectionClient
 from .poster import CollectionPosterBuilder
@@ -33,10 +35,12 @@ from .sources import (
 
 
 class SmartCollections(_PluginBase):
+    _LEGACY_OSCAR_TITLE = "历届奥斯卡最佳动画长片及提名"
+    _OSCAR_BEST_PICTURE_TITLE = "奥斯卡历届最佳影片"
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.3.1"
+    plugin_version = "0.3.2"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -584,12 +588,29 @@ class SmartCollections(_PluginBase):
         return {"success": True, "data": self.get_data("history") or []}
 
     def api_status(self) -> Dict[str, Any]:
+        collections = []
+        for item in self._load_managed_collections():
+            record = dict(item)
+            source_spec = record.get("source_spec") or {}
+            if (
+                str(source_spec.get("list_id") or "") == "finly_oscars_animation"
+                and record.get("name") == self._LEGACY_OSCAR_TITLE
+            ):
+                record["name"] = self._OSCAR_BEST_PICTURE_TITLE
+            if not record.get("source_url"):
+                try:
+                    record["source_url"] = SourceResolver.source_url(
+                        self._spec_from_payload(source_spec)
+                    )
+                except Exception:
+                    record["source_url"] = None
+            collections.append(record)
         return {
             "success": True,
             "data": {
                 "catalog": self._source_catalog(),
                 "templates": self._load_templates(),
-                "collections": self._load_managed_collections(),
+                "collections": collections,
                 "history": self.get_data("history") or [],
                 "running": self._run_lock.locked(),
                 "server": self._emby_server,
@@ -761,9 +782,12 @@ class SmartCollections(_PluginBase):
         try:
             spec = self._spec_from_payload(record.get("source_spec") or {})
             preview = self._build_preview(spec)
+            collection_name = record.get("name") or preview.get("title")
+            if collection_name == self._LEGACY_OSCAR_TITLE:
+                collection_name = self._OSCAR_BEST_PICTURE_TITLE
             result = self._sync_preview_data(
                 preview=preview,
-                name=record.get("name") or preview.get("title"),
+                name=collection_name,
                 mode=record.get("mode") or self._sync_mode,
                 record_id=collection_id,
             )
@@ -804,6 +828,10 @@ class SmartCollections(_PluginBase):
             return {"success": False, "message": "缺少影视标题"}
         mtype = MediaType.MOVIE if media_type == "movie" else MediaType.TV
         try:
+            default_filter_groups = (
+                SystemConfigOper().get(SystemConfigKey.SubscribeFilterRuleGroups)
+                or None
+            )
             subscription_id, message = SubscribeChain().add(
                 title=title,
                 year=str(payload.get("year") or ""),
@@ -812,13 +840,32 @@ class SmartCollections(_PluginBase):
                 exist_ok=True,
                 message=False,
                 username="智能合集",
+                filter_groups=default_filter_groups,
             )
             message = str(message or "")
             if subscription_id:
+                threading.Thread(
+                    target=Scheduler().start,
+                    kwargs={
+                        "job_id": "subscribe_search",
+                        "sid": int(subscription_id),
+                        "state": None,
+                        "manual": True,
+                    },
+                    name=f"SmartCollectionsSubscribeSearch-{subscription_id}",
+                    daemon=True,
+                ).start()
+                already_exists = any(
+                    keyword in message for keyword in ("存在", "重复", "订阅中")
+                )
                 return {
                     "success": True,
-                    "data": {"subscription_id": subscription_id, "already_exists": False},
-                    "message": message or "已添加订阅",
+                    "data": {
+                        "subscription_id": subscription_id,
+                        "already_exists": already_exists,
+                        "search_started": True,
+                    },
+                    "message": f"{message or '已添加订阅'}，已开始搜索资源",
                 }
             if any(keyword in message for keyword in ("存在", "重复", "订阅中")):
                 return {
@@ -889,6 +936,7 @@ class SmartCollections(_PluginBase):
                     "list_id": item["value"],
                     "name": item["title"],
                     "title": item["title"],
+                    "url": item.get("url"),
                     "media_type": item.get("media_type"),
                 }
                 for item in POPULAR_TMDB_LISTS
@@ -951,6 +999,12 @@ class SmartCollections(_PluginBase):
         if source_type not in {"tmdb", "tmdb_builtin", "douban", "template"}:
             raise ValueError("不支持的片单来源")
         list_id = str(payload.get("list_id") or payload.get("value") or "").strip() or None
+        if (
+            source_type == "tmdb_builtin"
+            and list_id == "finly_oscars_animation"
+            and name == self._LEGACY_OSCAR_TITLE
+        ):
+            name = self._OSCAR_BEST_PICTURE_TITLE
         items = payload.get("items") or []
         spec = CollectionSpec(
             source_type=source_type,
@@ -1054,6 +1108,7 @@ class SmartCollections(_PluginBase):
             "title": title,
             "description": "",
             "source": spec.source_type,
+            "source_url": SourceResolver.source_url(spec),
             "spec": asdict(spec),
             "total_count": len(rows),
             "movie_count": sum(row.get("media_type") == "movie" for row in rows),
@@ -1199,6 +1254,9 @@ class SmartCollections(_PluginBase):
             "id": str(current.get("id")) if current else uuid.uuid4().hex,
             "name": result.get("name"),
             "source": preview.get("source"),
+            "source_url": preview.get("source_url") or SourceResolver.source_url(
+                self._spec_from_payload(source_spec)
+            ),
             "source_spec": source_spec,
             "source_key": source_key,
             "mode": mode if mode in {"sync", "append"} else self._sync_mode,
