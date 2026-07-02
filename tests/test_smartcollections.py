@@ -1,12 +1,16 @@
 import ast
 import importlib.util
+import io
 import sys
 import types
 import unittest
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
+from unittest.mock import patch
+
+from PIL import Image
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,7 +37,18 @@ config = types.ModuleType("app.core.config")
 config.settings = settings
 utils = types.ModuleType("app.utils")
 http = types.ModuleType("app.utils.http")
-http.RequestUtils = object
+class FakeRequestUtils:
+    deleted_urls = []
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def delete_res(self, url):
+        self.deleted_urls.append(url)
+        return FakeResponse({}, 204)
+
+
+http.RequestUtils = FakeRequestUtils
 sys.modules.update(
     {
         "app": app,
@@ -46,6 +61,7 @@ sys.modules.update(
 
 sources = load_module("smartcollections_sources_test", PLUGIN / "sources.py")
 emby = load_module("smartcollections_emby_test", PLUGIN / "emby.py")
+poster = load_module("smartcollections_poster_test", PLUGIN / "poster.py")
 
 
 class FakeResponse:
@@ -61,6 +77,9 @@ class FakeResponse:
 class FakeEmby:
     def __init__(self):
         self.deleted = []
+        self.uploaded = []
+        self._host = "http://emby/"
+        self._apikey = "test-key"
 
     def get_data(self, url):
         return FakeResponse(
@@ -88,12 +107,63 @@ class FakeEmby:
             }
         )
 
-    def delete_data(self, url):
-        self.deleted.append(url)
+    def post_data(self, url, data=None, headers=None):
+        self.uploaded.append((url, data, headers))
         return FakeResponse({}, 204)
+
+    def get_play_url(self, item_id):
+        return f"http://emby/web/index.html#!/item?id={item_id}"
 
 
 class SmartCollectionsTests(unittest.TestCase):
+    def test_missing_item_subscription_uses_moviepilot_chain(self):
+        source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        method = next(
+            node
+            for item in tree.body
+            if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
+            for node in item.body
+            if isinstance(node, ast.FunctionDef) and node.name == "api_subscribe"
+        )
+
+        class MediaType(Enum):
+            MOVIE = "电影"
+            TV = "电视剧"
+
+        class FakeSubscribeChain:
+            kwargs = None
+
+            def add(self, **kwargs):
+                type(self).kwargs = kwargs
+                return 42, ""
+
+        class FakeLogger:
+            def exception(self, *_args, **_kwargs):
+                pass
+
+        namespace = {
+            "Any": Any,
+            "Dict": Dict,
+            "MediaType": MediaType,
+            "SubscribeChain": FakeSubscribeChain,
+            "logger": FakeLogger(),
+            "Body": lambda *args, **kwargs: None,
+        }
+        method_source = ast.unparse(method)
+        exec(
+            "class Subject:\n"
+            + "\n".join(f"    {line}" for line in method_source.splitlines()),
+            namespace,
+        )
+        result = namespace["Subject"]().api_subscribe(
+            {"tmdb_id": 101, "media_type": "movie", "title": "测试电影", "year": 2024}
+        )
+        self.assertTrue(result["success"])
+        self.assertEqual(result["data"]["subscription_id"], 42)
+        self.assertEqual(FakeSubscribeChain.kwargs["tmdbid"], 101)
+        self.assertFalse(FakeSubscribeChain.kwargs["message"])
+
     def test_douban_conversion_uses_official_media_chain(self):
         source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
         self.assertNotIn("recognize_media(doubanid=", source)
@@ -207,7 +277,26 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertEqual(catalog[("movie", 101)]["name"], "测试电影")
         self.assertEqual(title_index[("testmovie", 2024)][0]["id"], "m1")
         client.delete_collection("box1")
-        self.assertIn("Items/box1", fake.deleted[0])
+        self.assertIn("Items/box1", FakeRequestUtils.deleted_urls[-1])
+        self.assertIn("item?id=m1", client.get_item_url("m1"))
+        client.set_collection_poster("box1", b"jpeg-bytes")
+        self.assertIn("Images/Primary", fake.uploaded[-1][0])
+
+    def test_collection_poster_generate_and_normalize(self):
+        source_images = [
+            Image.new("RGB", (400, 600), (30 + index * 20, 80, 150))
+            for index in range(3)
+        ]
+        with patch.object(
+            poster.CollectionPosterBuilder,
+            "_download_images",
+            return_value=source_images,
+        ):
+            content = poster.CollectionPosterBuilder.generate("测试智能合集", ["a", "b"])
+        with Image.open(io.BytesIO(content)) as image:
+            self.assertEqual(image.size, (1000, 1500))
+        normalized = poster.CollectionPosterBuilder.normalize_upload(content)
+        self.assertTrue(normalized.startswith(b"\xff\xd8"))
 
 
 if __name__ == "__main__":

@@ -26,6 +26,13 @@ const templateDescription = ref('')
 const importDialog = ref(false)
 const importText = ref('')
 const previewAnchor = ref(null)
+const enlargedPoster = ref('')
+const enlargedPosterTitle = ref('')
+const subscribingKeys = ref([])
+const subscribedKeys = ref([])
+const posterDialog = ref(false)
+const posterCollection = ref(null)
+const posterFile = ref(null)
 
 const pluginBase = computed(() => `plugin/${props.pluginId || 'SmartCollections'}`)
 const sourceItems = computed(() => status.value.catalog?.[sourceTab.value] || [])
@@ -223,6 +230,94 @@ async function deleteCollection(collection) {
   }
 }
 
+async function subscribeItem(item) {
+  if (!item.tmdb_id || !item.media_type || subscribingKeys.value.includes(item.key)) return
+  subscribingKeys.value = [...subscribingKeys.value, item.key]
+  clearMessages()
+  try {
+    const response = await props.api.post(`${pluginBase.value}/subscribe`, {
+      tmdb_id: item.tmdb_id,
+      media_type: item.media_type,
+      title: item.title,
+      year: item.year,
+    })
+    const result = assertResponse(response) || {}
+    subscribedKeys.value = [...new Set([...subscribedKeys.value, item.key])]
+    notice.value = result.already_exists ? `「${item.title}」已经订阅` : `已订阅「${item.title}」`
+  } catch (err) {
+    error.value = err?.message || '添加订阅失败'
+  } finally {
+    subscribingKeys.value = subscribingKeys.value.filter(key => key !== item.key)
+  }
+}
+
+function showPoster(item) {
+  if (!item?.poster_url) return
+  enlargedPoster.value = item.poster_url
+  enlargedPosterTitle.value = item.title || '海报'
+}
+
+function openPosterManager(collection) {
+  posterCollection.value = collection
+  posterFile.value = null
+  posterDialog.value = true
+}
+
+async function generateCollectionPoster() {
+  if (!posterCollection.value) return
+  actionLoading.value = `poster-auto:${posterCollection.value.id}`
+  clearMessages()
+  try {
+    const response = await props.api.post(`${pluginBase.value}/collections/poster/auto`, {
+      collection_id: posterCollection.value.id,
+    })
+    assertResponse(response)
+    const name = posterCollection.value.name
+    posterDialog.value = false
+    await loadStatus()
+    notice.value = `「${name}」合集海报已重新生成`
+  } catch (err) {
+    error.value = err?.message || '自动生成海报失败'
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(new Error('读取图片失败'))
+    reader.readAsDataURL(file)
+  })
+}
+
+async function uploadCollectionPoster() {
+  const file = Array.isArray(posterFile.value) ? posterFile.value[0] : posterFile.value
+  if (!posterCollection.value || !file) {
+    error.value = '请先选择一张海报图片'
+    return
+  }
+  actionLoading.value = `poster-upload:${posterCollection.value.id}`
+  clearMessages()
+  try {
+    const image = await readFileAsDataUrl(file)
+    const response = await props.api.post(`${pluginBase.value}/collections/poster/upload`, {
+      collection_id: posterCollection.value.id,
+      image,
+    })
+    assertResponse(response)
+    const name = posterCollection.value.name
+    posterDialog.value = false
+    await loadStatus()
+    notice.value = `「${name}」自定义海报已上传`
+  } catch (err) {
+    error.value = err?.message || '上传海报失败'
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
 function tmdbLink(item) {
   if (!item.tmdb_id) return ''
   return `https://www.themoviedb.org/${item.media_type === 'tv' ? 'tv' : 'movie'}/${item.tmdb_id}`
@@ -351,9 +446,13 @@ onMounted(loadStatus)
                   </div>
                   <VChip color="success" variant="tonal">{{ collection.matched_count }}/{{ collection.total_count }}</VChip>
                 </div>
+                <VChip v-if="collection.poster_source" size="small" variant="tonal" color="purple" class="mt-3">
+                  {{ collection.poster_source === 'custom' ? '自定义海报' : '自动海报' }}
+                </VChip>
               </VCardText>
-              <VCardActions>
+              <VCardActions class="flex-wrap">
                 <VBtn variant="tonal" prepend-icon="mdi-sync" :loading="actionLoading === `resync:${collection.id}`" @click="resyncCollection(collection)">重新同步</VBtn>
+                <VBtn variant="tonal" prepend-icon="mdi-image-edit" @click="openPosterManager(collection)">海报</VBtn>
                 <VSpacer />
                 <VBtn color="error" variant="text" prepend-icon="mdi-delete-outline" @click="deleteCollection(collection)">删除</VBtn>
               </VCardActions>
@@ -390,15 +489,39 @@ onMounted(loadStatus)
                 <tr v-for="item in visiblePreviewItems" :key="item.key">
                   <td><VCheckboxBtn v-if="item.matched" v-model="selectedPreviewKeys" :value="item.key" color="success" /></td>
                   <td>{{ item.position }}</td>
-                  <td><VImg :src="item.poster_url" width="42" height="62" cover class="poster rounded" /></td>
+                  <td>
+                    <VImg
+                      :src="item.poster_url"
+                      width="42"
+                      height="62"
+                      cover
+                      :class="['poster', 'rounded', { 'poster-clickable': item.poster_url }]"
+                      @click="showPoster(item)"
+                    />
+                  </td>
                   <td><VChip :color="item.matched ? 'success' : 'default'" size="small" variant="tonal">{{ item.matched ? '已匹配' : '缺失' }}</VChip></td>
                   <td>
                     <a v-if="tmdbLink(item)" :href="tmdbLink(item)" target="_blank" class="item-link">{{ item.title }}</a><span v-else>{{ item.title }}</span>
                     <span class="text-medium-emphasis"> {{ item.year ? `(${item.year})` : '' }}</span>
                     <VChip size="x-small" class="ms-2">{{ item.media_type === 'tv' ? '剧集' : '电影' }}</VChip>
+                    <VBtn
+                      v-if="!item.matched && item.tmdb_id"
+                      size="x-small"
+                      color="primary"
+                      variant="tonal"
+                      class="ms-2"
+                      prepend-icon="mdi-bell-plus-outline"
+                      :loading="subscribingKeys.includes(item.key)"
+                      :disabled="subscribedKeys.includes(item.key)"
+                      @click="subscribeItem(item)"
+                    >{{ subscribedKeys.includes(item.key) ? '已订阅' : '订阅' }}</VBtn>
                     <div v-if="!item.matched" class="text-caption text-medium-emphasis">{{ item.missing_reason }}</div>
                   </td>
-                  <td><span :class="item.matched ? 'text-success' : 'text-medium-emphasis'">{{ item.emby_name || '—' }}</span><span v-if="item.match_method === 'title'" class="text-caption text-medium-emphasis">（标题兜底）</span></td>
+                  <td>
+                    <a v-if="item.emby_url" :href="item.emby_url" target="_blank" rel="noopener" class="emby-link">{{ item.emby_name }}</a>
+                    <span v-else class="text-medium-emphasis">{{ item.emby_name || '—' }}</span>
+                    <span v-if="item.match_method === 'title'" class="text-caption text-medium-emphasis">（标题兜底）</span>
+                  </td>
                 </tr>
               </tbody>
             </VTable>
@@ -421,6 +544,46 @@ onMounted(loadStatus)
         <VCardActions><VSpacer /><VBtn variant="text" @click="importDialog = false">取消</VBtn><VBtn color="primary" @click="importTemplates">导入</VBtn></VCardActions>
       </VCard>
     </VDialog>
+
+    <VDialog :model-value="Boolean(enlargedPoster)" max-width="620" @update:model-value="value => { if (!value) enlargedPoster = '' }">
+      <VCard rounded="xl">
+        <VToolbar density="comfortable" color="transparent">
+          <VToolbarTitle>{{ enlargedPosterTitle }}</VToolbarTitle>
+          <VBtn icon="mdi-close" variant="text" @click="enlargedPoster = ''" />
+        </VToolbar>
+        <VImg :src="enlargedPoster" max-height="82vh" contain class="bg-black" />
+      </VCard>
+    </VDialog>
+
+    <VDialog v-model="posterDialog" max-width="620">
+      <VCard rounded="xl">
+        <VCardTitle class="pa-5">设置「{{ posterCollection?.name }}」合集海报</VCardTitle>
+        <VDivider />
+        <VCardText class="pa-5">
+          <VAlert type="info" variant="tonal" class="mb-5">自动生成会使用片单中的前六张海报拼成竖版封面；也可以上传自己的图片覆盖。</VAlert>
+          <VBtn
+            block
+            size="large"
+            color="purple"
+            variant="tonal"
+            prepend-icon="mdi-auto-fix"
+            :loading="actionLoading === `poster-auto:${posterCollection?.id}`"
+            @click="generateCollectionPoster"
+          >自动生成并上传</VBtn>
+          <div class="text-center text-body-2 text-medium-emphasis my-5">或上传自己的海报</div>
+          <VFileInput v-model="posterFile" accept="image/jpeg,image/png,image/webp" label="选择自定义海报" prepend-icon="mdi-image-plus" show-size />
+          <VBtn
+            block
+            color="primary"
+            prepend-icon="mdi-upload"
+            :disabled="!posterFile"
+            :loading="actionLoading === `poster-upload:${posterCollection?.id}`"
+            @click="uploadCollectionPoster"
+          >上传自定义海报</VBtn>
+        </VCardText>
+        <VCardActions><VSpacer /><VBtn variant="text" @click="posterDialog = false">关闭</VBtn></VCardActions>
+      </VCard>
+    </VDialog>
   </div>
 </template>
 
@@ -434,8 +597,12 @@ onMounted(loadStatus)
 .preview-anchor { scroll-margin-top: 72px; }
 .preview-table { max-height: 650px; overflow: auto; border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); border-radius: 12px; }
 .poster { background: rgba(var(--v-theme-on-surface), .06); }
+.poster-clickable { cursor: zoom-in; transition: transform .16s ease; }
+.poster-clickable:hover { transform: scale(1.08); }
 .item-link { color: rgb(var(--v-theme-primary)); text-decoration: none; }
 .item-link:hover { text-decoration: underline; }
+.emby-link { color: rgb(var(--v-theme-success)); text-decoration: none; font-weight: 600; }
+.emby-link:hover { text-decoration: underline; }
 @media (max-width: 700px) {
   .smart-page { padding-inline: 10px !important; }
   .page-header > div:first-child { min-width: 0; width: 100%; }

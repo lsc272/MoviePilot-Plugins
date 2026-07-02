@@ -1,5 +1,5 @@
 import { importShared } from './__federation_fn_import-JrT3xvdd.js';
-import { _ as _export_sfc, S as SmartCollectionsApp } from './SmartCollectionsApp-D_pSYixg.js';
+import { _ as _export_sfc, S as SmartCollectionsApp } from './SmartCollectionsApp-C6pgGlS9.js';
 
 const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,withCtx:_withCtx,openBlock:_openBlock,createElementBlock:_createElementBlock} = await importShared('vue');
 
@@ -64,6 +64,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const Page = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-028ceaa7"]]);
+const Page = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-cd934720"]]);
 
 export { Page as default };
