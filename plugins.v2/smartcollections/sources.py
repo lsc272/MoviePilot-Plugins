@@ -13,39 +13,47 @@ POPULAR_TMDB_LISTS = [
         "title": "TMDB 本周热门电影",
         "value": "trending_movies_week",
         "path": "/3/trending/movie/week",
+        "url": "https://www.themoviedb.org/trending/movie/week",
         "media_type": "movie",
     },
     {
         "title": "TMDB 本周热门剧集",
         "value": "trending_tv_week",
         "path": "/3/trending/tv/week",
+        "url": "https://www.themoviedb.org/trending/tv/week",
         "media_type": "tv",
     },
     {
         "title": "TMDB 热门电影",
         "value": "popular_movies",
         "path": "/3/movie/popular",
+        "url": "https://www.themoviedb.org/movie",
         "media_type": "movie",
     },
     {
         "title": "TMDB 高分电影",
         "value": "top_rated_movies",
         "path": "/3/movie/top_rated",
+        "url": "https://www.themoviedb.org/movie/top-rated",
         "media_type": "movie",
     },
     {
         "title": "TMDB 热门剧集",
         "value": "popular_tv",
         "path": "/3/tv/popular",
+        "url": "https://www.themoviedb.org/tv",
         "media_type": "tv",
     },
     {
         "title": "TMDB 高分剧集",
         "value": "top_rated_tv",
         "path": "/3/tv/top_rated",
+        "url": "https://www.themoviedb.org/tv/top-rated",
         "media_type": "tv",
     },
-    {"title": "历届奥斯卡最佳动画长片及提名", "value": "finly_oscars_animation", "list_id": "8648843", "media_type": "movie"},
+    # Keep the historical value for saved configurations; the old display title
+    # incorrectly described TMDB List 8648843 as an animated-feature list.
+    {"title": "奥斯卡历届最佳影片", "value": "finly_oscars_animation", "list_id": "8648843", "media_type": "movie"},
     {"title": "历届金球奖电影精选", "value": "finly_golden_globes", "list_id": "8648849", "media_type": "movie"},
     {"title": "历届英国电影学院奖精选", "value": "finly_bafta", "list_id": "8648848", "media_type": "movie"},
     {"title": "戛纳电影节精选", "value": "finly_cannes", "list_id": "8648844", "media_type": "movie"},
@@ -54,8 +62,16 @@ POPULAR_TMDB_LISTS = [
     {"title": "IMDb Top 250 剧集", "value": "finly_imdb_tv", "list_id": "8647022", "media_type": "tv"},
     {"title": "豆瓣电影 Top 250", "value": "finly_douban_top250", "list_id": "8647023", "media_type": "movie"},
     {"title": "Letterboxd Top 500", "value": "finly_letterboxd_500", "list_id": "8648802", "media_type": "movie"},
+    {"title": "Letterboxd Top 250 动画长片", "value": "finly_letterboxd_animation_250", "list_id": "8649225", "media_type": "movie"},
     {"title": "Criterion Collection 精选", "value": "finly_criterion", "list_id": "8649108", "media_type": "movie"},
 ]
+
+
+for _definition in POPULAR_TMDB_LISTS:
+    if _definition.get("list_id") and not _definition.get("url"):
+        _definition["url"] = (
+            f"https://www.themoviedb.org/list/{_definition['list_id']}"
+        )
 
 
 POPULAR_DOUBAN_LISTS = [
@@ -207,6 +223,40 @@ class SourceResolver:
         if spec.source_type == "douban":
             return self._fetch_douban_list(spec.url or spec.list_id or "")
         return self._parse_template(spec)
+
+    @classmethod
+    def source_url(cls, spec: CollectionSpec) -> Optional[str]:
+        """Return a browser-friendly canonical URL for a collection source."""
+
+        if spec.url:
+            return spec.url
+        if spec.source_type == "tmdb_builtin":
+            definition = next(
+                (
+                    item
+                    for item in POPULAR_TMDB_LISTS
+                    if item["value"] == str(spec.list_id or "")
+                ),
+                None,
+            )
+            if not definition:
+                return None
+            return str(definition.get("url") or "") or None
+        if spec.source_type == "tmdb":
+            match = cls._TMDB_LIST_RE.search(str(spec.list_id or ""))
+            return (
+                f"https://www.themoviedb.org/list/{match.group(1)}"
+                if match
+                else None
+            )
+        if spec.source_type == "douban":
+            match = cls._DOUBAN_LIST_RE.search(str(spec.list_id or ""))
+            return (
+                f"https://www.douban.com/doulist/{match.group(1)}/"
+                if match
+                else None
+            )
+        return None
 
     @classmethod
     def spec_from_url(cls, url: str) -> CollectionSpec:
