@@ -238,6 +238,7 @@ async function previewCollection(collection) {
     ...(collection.source_spec || {}),
     id: `collection:${collection.id}`,
     name: collection.name,
+    use_source_title: false,
   })
 }
 
@@ -499,24 +500,28 @@ onMounted(loadStatus)
               <VCol v-for="source in sourceItems" :key="source.id" cols="12" lg="6">
                 <VCard rounded="lg" variant="outlined" class="source-card h-100">
                   <VCardText class="source-row d-flex align-center ga-3 pa-3">
-                    <VCheckboxBtn v-model="selectedSources" :value="source.id" color="primary" />
-                    <VAvatar :color="sourceTab === 'douban' ? 'green' : 'blue'" variant="tonal" rounded="lg" size="42">
-                      <VIcon :icon="sourceTab === 'douban' ? 'mdi-alpha-d-box' : 'mdi-movie-open-star'" />
-                    </VAvatar>
-                    <div class="source-name flex-grow-1 min-width-0">
-                      <div class="font-weight-medium text-truncate">{{ source.name }}</div>
-                      <div class="text-caption text-medium-emphasis">{{ sourceTab === 'douban' ? `豆列 ${source.list_id}` : source.media_type === 'tv' ? '剧集片单' : '电影片单' }}</div>
+                    <VCheckboxBtn v-model="selectedSources" :value="source.id" color="primary" class="source-check" />
+                    <div class="source-identity d-flex align-center ga-3 flex-grow-1 min-width-0">
+                      <VAvatar :color="sourceTab === 'douban' ? 'green' : 'blue'" variant="tonal" rounded="lg" size="42" class="source-avatar">
+                        <VIcon :icon="sourceTab === 'douban' ? 'mdi-alpha-d-box' : 'mdi-movie-open-star'" />
+                      </VAvatar>
+                      <div class="source-name d-flex flex-column justify-center min-width-0">
+                        <div class="font-weight-medium text-truncate">{{ source.name }}</div>
+                        <div class="text-caption text-medium-emphasis">{{ sourceTab === 'douban' ? `豆列 ${source.list_id}` : source.media_type === 'tv' ? '剧集片单' : '电影片单' }}</div>
+                      </div>
                     </div>
-                    <VBtn
-                      v-if="source.url"
-                      :href="source.url"
-                      target="_blank"
-                      rel="noopener"
-                      size="small"
-                      variant="text"
-                      prepend-icon="mdi-open-in-new"
-                    >来源</VBtn>
-                    <VBtn size="small" variant="tonal" prepend-icon="mdi-eye" :loading="actionLoading === `preview:${source.id}`" @click="runPreview(source)">预览匹配</VBtn>
+                    <div class="source-actions d-flex align-center ga-2">
+                      <VBtn
+                        v-if="source.url"
+                        :href="source.url"
+                        target="_blank"
+                        rel="noopener"
+                        size="small"
+                        variant="text"
+                        prepend-icon="mdi-open-in-new"
+                      >来源</VBtn>
+                      <VBtn size="small" variant="tonal" prepend-icon="mdi-eye" :loading="actionLoading === `preview:${source.id}`" @click="runPreview(source)">预览匹配</VBtn>
+                    </div>
                   </VCardText>
                 </VCard>
               </VCol>
@@ -800,7 +805,7 @@ onMounted(loadStatus)
         <VCardTitle class="pa-5">设置「{{ posterCollection?.name }}」合集海报</VCardTitle>
         <VDivider />
         <VCardText class="pa-5">
-          <VAlert type="info" variant="tonal" class="mb-5">自动生成会使用片单中的前四张完整海报、柔化背景和渐变标题生成竖版封面；也可以上传自己的图片覆盖。</VAlert>
+          <VAlert type="info" variant="tonal" class="mb-5">自动生成会使用片单中的多张海报组成倾斜海报墙，并叠加由下向上的浅色渐变与自适应标题；也可以上传自己的图片覆盖。</VAlert>
           <VBtn
             block
             size="large"
@@ -833,7 +838,11 @@ onMounted(loadStatus)
 .source-card { transition: transform .18s ease, border-color .18s ease; }
 .source-card:hover { transform: translateY(-2px); border-color: rgb(var(--v-theme-primary)); }
 .source-row { min-height: 68px; }
-.source-name { max-width: calc(100% - 285px); }
+.source-check, .source-avatar { flex: 0 0 auto; }
+.source-identity { min-height: 44px; }
+.source-name { min-height: 42px; max-width: 100%; }
+.source-actions { flex: 0 0 auto; }
+.source-row :deep(.v-selection-control) { min-height: 44px; align-items: center; }
 .min-width-0 { min-width: 0; }
 .collection-name { min-width: 230px; max-width: 360px; }
 .preview-heading { flex: 1 1 360px; min-width: 260px; }
@@ -858,8 +867,9 @@ onMounted(loadStatus)
   .preview-heading, .preview-actions { flex-basis: 100%; min-width: 100%; }
   .preview-actions > .v-btn { flex: 1 1 180px; }
   .source-row { flex-wrap: wrap; }
-  .source-name { max-width: calc(100% - 105px); }
-  .source-row > .v-btn { flex: 1 1 120px; }
+  .source-identity { max-width: calc(100% - 56px); }
+  .source-actions { width: 100%; padding-left: 52px; }
+  .source-actions > .v-btn { flex: 1 1 120px; }
   .smart-page :deep(.v-card-title) { padding: 16px !important; }
   .smart-page :deep(.v-card-title .v-btn) { flex: 1 1 auto; }
 }
