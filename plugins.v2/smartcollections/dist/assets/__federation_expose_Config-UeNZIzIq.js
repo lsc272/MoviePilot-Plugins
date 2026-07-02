@@ -1,5 +1,5 @@
 import { importShared } from './__federation_fn_import-JrT3xvdd.js';
-import { c as clone, u as unwrapResponse } from './provider-8rizRzPF.js';
+import { c as clone, u as unwrapResponse } from './provider-DU2BtLoi.js';
 
 const {createElementVNode:_createElementVNode,resolveComponent:_resolveComponent,createVNode:_createVNode,createTextVNode:_createTextVNode,withCtx:_withCtx,openBlock:_openBlock,createElementBlock:_createElementBlock} = await importShared('vue');
 
@@ -33,6 +33,7 @@ onMounted(async () => {
   config.value = {
     enabled: false,
     show_sidebar_nav: true,
+    auto_poster: true,
     onlyonce: false,
     notify: false,
     use_proxy: false,
@@ -66,7 +67,7 @@ return (_ctx, _cache) => {
 
   return (_openBlock(), _createElementBlock("div", _hoisted_1, [
     _createElementVNode("div", _hoisted_2, [
-      _cache[13] || (_cache[13] = _createElementVNode("div", null, [
+      _cache[14] || (_cache[14] = _createElementVNode("div", null, [
         _createElementVNode("div", { class: "text-h6" }, "智能合集设置"),
         _createElementVNode("div", { class: "text-body-2 text-medium-emphasis" }, "连接 Emby，并控制自动同步行为。")
       ], -1)),
@@ -76,7 +77,7 @@ return (_ctx, _cache) => {
         "prepend-icon": "mdi-content-save",
         onClick: save
       }, {
-        default: _withCtx(() => [...(_cache[12] || (_cache[12] = [
+        default: _withCtx(() => [...(_cache[13] || (_cache[13] = [
           _createTextVNode("保存", -1)
         ]))]),
         _: 1
@@ -154,12 +155,26 @@ return (_ctx, _cache) => {
                 }),
                 _createVNode(_component_VCol, {
                   cols: "12",
+                  md: "3"
+                }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_VSwitch, {
+                      modelValue: config.value.auto_poster,
+                      "onUpdate:modelValue": _cache[5] || (_cache[5] = $event => ((config.value.auto_poster) = $event)),
+                      label: "首次同步自动生成海报",
+                      color: "primary"
+                    }, null, 8, ["modelValue"])
+                  ]),
+                  _: 1
+                }),
+                _createVNode(_component_VCol, {
+                  cols: "12",
                   md: "4"
                 }, {
                   default: _withCtx(() => [
                     _createVNode(_component_VSelect, {
                       modelValue: config.value.emby_server,
-                      "onUpdate:modelValue": _cache[5] || (_cache[5] = $event => ((config.value.emby_server) = $event)),
+                      "onUpdate:modelValue": _cache[6] || (_cache[6] = $event => ((config.value.emby_server) = $event)),
                       items: embyServers.value,
                       label: "Emby 服务器",
                       hint: "选择 MoviePilot 中已启用的 Emby",
@@ -175,7 +190,7 @@ return (_ctx, _cache) => {
                   default: _withCtx(() => [
                     _createVNode(_component_VTextField, {
                       modelValue: config.value.cron,
-                      "onUpdate:modelValue": _cache[6] || (_cache[6] = $event => ((config.value.cron) = $event)),
+                      "onUpdate:modelValue": _cache[7] || (_cache[7] = $event => ((config.value.cron) = $event)),
                       label: "Cron 表达式"
                     }, null, 8, ["modelValue"])
                   ]),
@@ -188,7 +203,7 @@ return (_ctx, _cache) => {
                   default: _withCtx(() => [
                     _createVNode(_component_VSelect, {
                       modelValue: config.value.sync_mode,
-                      "onUpdate:modelValue": _cache[7] || (_cache[7] = $event => ((config.value.sync_mode) = $event)),
+                      "onUpdate:modelValue": _cache[8] || (_cache[8] = $event => ((config.value.sync_mode) = $event)),
                       label: "默认更新模式",
                       items: [{ title: '完全同步（增删）', value: 'sync' }, { title: '仅追加', value: 'append' }]
                     }, null, 8, ["modelValue"])
@@ -202,7 +217,7 @@ return (_ctx, _cache) => {
                   default: _withCtx(() => [
                     _createVNode(_component_VTextField, {
                       modelValue: config.value.tmdb_token,
-                      "onUpdate:modelValue": _cache[8] || (_cache[8] = $event => ((config.value.tmdb_token) = $event)),
+                      "onUpdate:modelValue": _cache[9] || (_cache[9] = $event => ((config.value.tmdb_token) = $event)),
                       type: "password",
                       label: "TMDB v4 Read Access Token"
                     }, null, 8, ["modelValue"])
@@ -216,7 +231,7 @@ return (_ctx, _cache) => {
                   default: _withCtx(() => [
                     _createVNode(_component_VTextField, {
                       modelValue: config.value.language,
-                      "onUpdate:modelValue": _cache[9] || (_cache[9] = $event => ((config.value.language) = $event)),
+                      "onUpdate:modelValue": _cache[10] || (_cache[10] = $event => ((config.value.language) = $event)),
                       label: "TMDB 语言"
                     }, null, 8, ["modelValue"])
                   ]),
@@ -229,7 +244,7 @@ return (_ctx, _cache) => {
                   default: _withCtx(() => [
                     _createVNode(_component_VTextField, {
                       modelValue: config.value.max_items,
-                      "onUpdate:modelValue": _cache[10] || (_cache[10] = $event => ((config.value.max_items) = $event)),
+                      "onUpdate:modelValue": _cache[11] || (_cache[11] = $event => ((config.value.max_items) = $event)),
                       modelModifiers: { number: true },
                       type: "number",
                       label: "每个片单最多读取"
@@ -241,7 +256,7 @@ return (_ctx, _cache) => {
                   default: _withCtx(() => [
                     _createVNode(_component_VSwitch, {
                       modelValue: config.value.use_proxy,
-                      "onUpdate:modelValue": _cache[11] || (_cache[11] = $event => ((config.value.use_proxy) = $event)),
+                      "onUpdate:modelValue": _cache[12] || (_cache[12] = $event => ((config.value.use_proxy) = $event)),
                       label: "访问公开片单时使用 MoviePilot 代理",
                       color: "primary"
                     }, null, 8, ["modelValue"])

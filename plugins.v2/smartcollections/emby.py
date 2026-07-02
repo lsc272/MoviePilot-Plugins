@@ -1,8 +1,11 @@
-from dataclasses import dataclass
+import base64
 import re
+from dataclasses import dataclass
 
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from urllib.parse import urlencode
+
+from app.utils.http import RequestUtils
 
 
 @dataclass
@@ -217,9 +220,35 @@ class EmbyCollectionClient:
     def delete_collection(self, collection_id: str) -> None:
         """Delete a BoxSet created or tracked by this plugin."""
 
-        params = {"api_key": "[APIKEY]"}
-        url = f"[HOST]emby/Items/{collection_id}?{urlencode(params, safe='[]')}"
-        response = self._emby.delete_data(url=url)
+        host = str(getattr(self._emby, "_host", "") or "")
+        api_key = str(getattr(self._emby, "_apikey", "") or "")
+        if not host or not api_key:
+            raise RuntimeError("Emby 连接信息不完整")
+        params = {"api_key": api_key}
+        url = f"{host}emby/Items/{collection_id}?{urlencode(params)}"
+        response = RequestUtils().delete_res(url=url)
         if not response or response.status_code not in {200, 202, 204}:
             code = response.status_code if response is not None else "无响应"
             raise RuntimeError(f"删除 Emby 合集失败：{code}")
+
+    def get_item_url(self, item_id: str) -> Optional[str]:
+        """Return the configured Emby web page for one library item."""
+
+        if not item_id or not hasattr(self._emby, "get_play_url"):
+            return None
+        return self._emby.get_play_url(str(item_id))
+
+    def set_collection_poster(self, collection_id: str, image: bytes) -> None:
+        """Upload JPEG bytes as the collection primary image."""
+
+        if not collection_id or not image:
+            raise ValueError("合集 ID 或海报内容为空")
+        url = f"[HOST]emby/Items/{collection_id}/Images/Primary?api_key=[APIKEY]"
+        response = self._emby.post_data(
+            url=url,
+            data=base64.b64encode(image).decode("ascii"),
+            headers={"Content-Type": "image/jpeg"},
+        )
+        if not response or response.status_code not in {200, 201, 202, 204}:
+            code = response.status_code if response is not None else "无响应"
+            raise RuntimeError(f"设置 Emby 合集海报失败：{code}")

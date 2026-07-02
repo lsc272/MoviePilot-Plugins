@@ -19,6 +19,7 @@ onMounted(async () => {
   config.value = {
     enabled: false,
     show_sidebar_nav: true,
+    auto_poster: true,
     onlyonce: false,
     notify: false,
     use_proxy: false,
@@ -59,6 +60,7 @@ onMounted(async () => {
           <VCol cols="12" md="3"><VSwitch v-model="config.show_sidebar_nav" label="显示侧栏入口" color="primary" /></VCol>
           <VCol cols="12" md="3"><VSwitch v-model="config.onlyonce" label="保存后运行一次" color="primary" /></VCol>
           <VCol cols="12" md="3"><VSwitch v-model="config.notify" label="发送同步通知" color="primary" /></VCol>
+          <VCol cols="12" md="3"><VSwitch v-model="config.auto_poster" label="首次同步自动生成海报" color="primary" /></VCol>
           <VCol cols="12" md="4"><VSelect v-model="config.emby_server" :items="embyServers" label="Emby 服务器" hint="选择 MoviePilot 中已启用的 Emby" persistent-hint /></VCol>
           <VCol cols="12" md="4"><VTextField v-model="config.cron" label="Cron 表达式" /></VCol>
           <VCol cols="12" md="4">

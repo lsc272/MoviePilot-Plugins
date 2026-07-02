@@ -1,3 +1,4 @@
+import base64
 import datetime
 import json
 import threading
@@ -12,6 +13,7 @@ from apscheduler.triggers.cron import CronTrigger
 from fastapi import Body
 
 from app.chain.media import MediaChain
+from app.chain.subscribe import SubscribeChain
 from app.core.config import settings
 from app.core.event import Event, eventmanager
 from app.helper.mediaserver import MediaServerHelper
@@ -20,6 +22,7 @@ from app.plugins import _PluginBase
 from app.schemas.types import EventType, MediaType, NotificationType
 
 from .emby import EmbyCollectionClient
+from .poster import CollectionPosterBuilder
 from .sources import (
     POPULAR_DOUBAN_LISTS,
     POPULAR_TMDB_LISTS,
@@ -33,7 +36,7 @@ class SmartCollections(_PluginBase):
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.3.0"
+    plugin_version = "0.3.1"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -51,6 +54,7 @@ class SmartCollections(_PluginBase):
     _max_items = 500
     _use_proxy = False
     _show_sidebar_nav = True
+    _auto_poster = True
     _popular_tmdb: List[str] = []
     _popular_douban: List[str] = []
     _manual_urls = ""
@@ -79,6 +83,7 @@ class SmartCollections(_PluginBase):
         self._max_items = self._safe_int(config.get("max_items"), 500, 1, 5000)
         self._use_proxy = bool(config.get("use_proxy"))
         self._show_sidebar_nav = bool(config.get("show_sidebar_nav", True))
+        self._auto_poster = bool(config.get("auto_poster", True))
         self._popular_tmdb = list(config.get("popular_tmdb") or [])
         self._popular_douban = list(config.get("popular_douban") or [])
         self._manual_urls = str(config.get("manual_urls") or "").strip()
@@ -210,6 +215,27 @@ class SmartCollections(_PluginBase):
                 "methods": ["POST"],
                 "auth": "bear",
                 "summary": "删除已管理合集",
+            },
+            {
+                "path": "/subscribe",
+                "endpoint": self.api_subscribe,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "订阅缺失影视",
+            },
+            {
+                "path": "/collections/poster/auto",
+                "endpoint": self.api_collection_poster_auto,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "自动生成并设置合集海报",
+            },
+            {
+                "path": "/collections/poster/upload",
+                "endpoint": self.api_collection_poster_upload,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "上传自定义合集海报",
             },
         ]
 
@@ -481,6 +507,7 @@ class SmartCollections(_PluginBase):
         ], {
             "enabled": False,
             "show_sidebar_nav": True,
+            "auto_poster": True,
             "onlyonce": False,
             "notify": False,
             "use_proxy": False,
@@ -763,6 +790,92 @@ class SmartCollections(_PluginBase):
         except Exception as exc:
             return {"success": False, "message": str(exc)}
 
+    def api_subscribe(self, payload: dict = Body(...)) -> Dict[str, Any]:
+        payload = payload or {}
+        try:
+            tmdb_id = int(payload.get("tmdb_id"))
+        except (TypeError, ValueError):
+            return {"success": False, "message": "缺少有效的 TMDB ID"}
+        media_type = str(payload.get("media_type") or "").lower()
+        if media_type not in {"movie", "tv"}:
+            return {"success": False, "message": "缺少有效的媒体类型"}
+        title = str(payload.get("title") or "").strip()
+        if not title:
+            return {"success": False, "message": "缺少影视标题"}
+        mtype = MediaType.MOVIE if media_type == "movie" else MediaType.TV
+        try:
+            subscription_id, message = SubscribeChain().add(
+                title=title,
+                year=str(payload.get("year") or ""),
+                mtype=mtype,
+                tmdbid=tmdb_id,
+                exist_ok=True,
+                message=False,
+                username="智能合集",
+            )
+            message = str(message or "")
+            if subscription_id:
+                return {
+                    "success": True,
+                    "data": {"subscription_id": subscription_id, "already_exists": False},
+                    "message": message or "已添加订阅",
+                }
+            if any(keyword in message for keyword in ("存在", "重复", "订阅中")):
+                return {
+                    "success": True,
+                    "data": {"subscription_id": None, "already_exists": True},
+                    "message": message or "订阅已存在",
+                }
+            return {"success": False, "message": message or "添加订阅失败"}
+        except Exception as exc:
+            logger.exception(f"智能合集添加订阅失败：{exc}")
+            return {"success": False, "message": str(exc)}
+
+    def api_collection_poster_auto(self, payload: dict = Body(...)) -> Dict[str, Any]:
+        record = self._managed_collection_from_payload(payload)
+        if not record:
+            return {"success": False, "message": "未找到合集记录"}
+        try:
+            spec = self._spec_from_payload(record.get("source_spec") or {})
+            preview = self._build_preview(spec)
+            self._generate_and_set_poster(record, preview, source="auto")
+            return {"success": True, "message": "合集海报已自动生成并上传"}
+        except Exception as exc:
+            logger.exception(f"智能合集自动生成海报失败：{exc}")
+            return {"success": False, "message": str(exc)}
+
+    def api_collection_poster_upload(self, payload: dict = Body(...)) -> Dict[str, Any]:
+        record = self._managed_collection_from_payload(payload)
+        if not record:
+            return {"success": False, "message": "未找到合集记录"}
+        encoded = str((payload or {}).get("image") or "").strip()
+        if not encoded:
+            return {"success": False, "message": "请选择要上传的海报图片"}
+        try:
+            if "," in encoded:
+                encoded = encoded.split(",", 1)[1]
+            content = base64.b64decode(encoded, validate=True)
+            image = CollectionPosterBuilder.normalize_upload(content)
+            self._emby_client().set_collection_poster(
+                str(record.get("emby_collection_id") or ""), image
+            )
+            self._mark_collection_poster(str(record["id"]), "custom")
+            return {"success": True, "message": "自定义合集海报已上传"}
+        except Exception as exc:
+            logger.exception(f"智能合集上传海报失败：{exc}")
+            return {"success": False, "message": str(exc)}
+
+    def _managed_collection_from_payload(self, payload: dict) -> Optional[dict]:
+        collection_id = str((payload or {}).get("collection_id") or "")
+        return next(
+            (
+                item
+                for item in self._load_managed_collections()
+                if str(item.get("id")) == collection_id
+            ),
+            None,
+        )
+
     @staticmethod
     def _now() -> str:
         return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -923,6 +1036,9 @@ class SmartCollections(_PluginBase):
                     "emby_item_id": match.get("id") if match else None,
                     "emby_name": match.get("name") if match else None,
                     "emby_year": match.get("year") if match else None,
+                    "emby_url": context["emby"].get_item_url(match.get("id"))
+                    if match
+                    else None,
                     "missing_reason": None
                     if match
                     else "Emby 媒体库中未找到匹配项目"
@@ -1038,6 +1154,13 @@ class SmartCollections(_PluginBase):
             record_id=record_id,
         )
         result["record_id"] = managed["id"]
+        if self._auto_poster and not managed.get("poster_source"):
+            try:
+                self._generate_and_set_poster(managed, preview, source="auto")
+                result["poster_generated"] = True
+            except Exception as exc:
+                result["poster_error"] = str(exc)
+                logger.warning(f"智能合集 {name} 自动生成海报失败：{exc}")
         self._append_history(
             {
                 "time": self._now(),
@@ -1085,11 +1208,43 @@ class SmartCollections(_PluginBase):
             "missing_count": result.get("missing", 0),
             "created_at": current.get("created_at") if current else now,
             "last_sync_at": now,
+            "poster_source": current.get("poster_source") if current else None,
+            "poster_updated_at": current.get("poster_updated_at") if current else None,
         }
         records = [item for item in records if str(item.get("id")) != record["id"]]
         records.insert(0, record)
         self.save_data("managed_collections", records[:100])
         return record
+
+    def _generate_and_set_poster(
+        self,
+        record: Dict[str, Any],
+        preview: Dict[str, Any],
+        source: str = "auto",
+    ) -> None:
+        collection_id = str(record.get("emby_collection_id") or "")
+        if not collection_id:
+            raise ValueError("合集尚未同步到 Emby")
+        poster_urls = [
+            str(item.get("poster_url") or "")
+            for item in preview.get("items") or []
+            if item.get("poster_url")
+        ]
+        image = CollectionPosterBuilder.generate(
+            str(record.get("name") or preview.get("title") or "智能合集"),
+            poster_urls,
+        )
+        self._emby_client().set_collection_poster(collection_id, image)
+        self._mark_collection_poster(str(record["id"]), source)
+
+    def _mark_collection_poster(self, record_id: str, source: str) -> None:
+        records = self._load_managed_collections()
+        for item in records:
+            if str(item.get("id")) == str(record_id):
+                item["poster_source"] = source
+                item["poster_updated_at"] = self._now()
+                break
+        self.save_data("managed_collections", records)
 
     @eventmanager.register(EventType.PluginAction)
     def on_plugin_action(self, event: Event):
@@ -1306,11 +1461,24 @@ class SmartCollections(_PluginBase):
                     "removed": sync_result.removed,
                 }
             )
-            self._upsert_managed_collection(
-                preview={"source": spec.source_type, "spec": asdict(spec)},
+            poster_preview = {
+                "source": spec.source_type,
+                "spec": asdict(spec),
+                "title": collection_name,
+                "items": [asdict(item) for item in normalized],
+            }
+            managed = self._upsert_managed_collection(
+                preview=poster_preview,
                 result=item_result,
                 mode=spec.mode or self._sync_mode,
             )
+            if self._auto_poster and not managed.get("poster_source"):
+                try:
+                    self._generate_and_set_poster(managed, poster_preview, source="auto")
+                    item_result["poster_generated"] = True
+                except Exception as exc:
+                    item_result["poster_error"] = str(exc)
+                    logger.warning(f"智能合集 {collection_name} 自动生成海报失败：{exc}")
             logger.info(
                 f"智能合集 {collection_name} 同步完成：来源 {item_result['source_items']}，"
                 f"匹配 {item_result['matched']}，新增 {item_result['added']}，"
@@ -1434,6 +1602,7 @@ class SmartCollections(_PluginBase):
             {
                 "enabled": self._enabled,
                 "show_sidebar_nav": self._show_sidebar_nav,
+                "auto_poster": self._auto_poster,
                 "onlyonce": self._onlyonce,
                 "notify": self._notify,
                 "cron": self._cron,
