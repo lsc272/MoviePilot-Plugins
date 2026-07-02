@@ -4,6 +4,7 @@ import json
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
@@ -66,7 +67,7 @@ class SmartCollections(_PluginBase):
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.3.4"
+    plugin_version = "0.3.5"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -98,6 +99,7 @@ class SmartCollections(_PluginBase):
         self._run_lock = threading.Lock()
         self._preview_lock = threading.RLock()
         self._preview_cache: Dict[str, Dict[str, Any]] = {}
+        self._douban_chain_cooldown_until = 0.0
         self._collection_tools_lock = threading.Lock()
         self._collection_tools_status_lock = threading.RLock()
         self._collection_tools_status: Dict[str, Any] = {
@@ -1511,17 +1513,35 @@ class SmartCollections(_PluginBase):
             if spec.use_source_title and resolved.title
             else spec.name or resolved.title or "未命名合集"
         )
+        batch_resolutions = self._resolve_large_douban_batch(
+            items=resolved.items,
+            title_index=context["title_index"],
+            douban_cache=context["douban_cache"],
+            resolver=context["resolver"],
+        )
         rows: List[dict] = []
         for position, source_item in enumerate(resolved.items, start=1):
-            converted = self._resolve_media_ref(source_item, context["douban_cache"])
-            effective = converted or source_item
-            match = None
-            match_method = None
+            match = self._find_title_match(source_item, context["title_index"])
+            match_method = "title" if match else None
+            if match:
+                effective = self._media_ref_from_emby_match(source_item, match)
+            else:
+                resolution_key = str(source_item.douban_id or "")
+                if resolution_key in batch_resolutions:
+                    converted = batch_resolutions[resolution_key]
+                else:
+                    converted = self._resolve_media_ref(
+                        source_item,
+                        context["douban_cache"],
+                        context["resolver"],
+                    )
+                effective = converted or source_item
             if effective.tmdb_id and effective.media_type in {"movie", "tv"}:
-                match = context["catalog"].get(
+                tmdb_match = context["catalog"].get(
                     (str(effective.media_type), int(effective.tmdb_id))
                 )
-                if match:
+                if tmdb_match:
+                    match = tmdb_match
                     match_method = "tmdb"
             if not match and effective.title:
                 match = self._find_title_match(effective, context["title_index"])
@@ -1550,14 +1570,22 @@ class SmartCollections(_PluginBase):
                     else None,
                     "missing_reason": None
                     if match
-                    else "Emby 媒体库中未找到匹配项目"
-                    if effective.tmdb_id or effective.title
-                    else "豆瓣条目未能转换为 TMDB",
+                    else "豆瓣 ID 与标题搜索均未能识别 TMDB"
+                    if effective.douban_id and not effective.tmdb_id
+                    else "Emby 媒体库中未找到匹配项目",
                 }
             )
 
         self.save_data("douban_tmdb_cache", context["douban_cache"])
         matched = sum(bool(row.get("matched")) for row in rows)
+        unavailable_count = max(
+            0, int(resolved.reported_total or len(rows)) - len(rows)
+        )
+        if unavailable_count:
+            logger.warning(
+                f"智能合集来源标称 {resolved.reported_total} 个条目，"
+                f"公开页面实际返回 {len(rows)} 个，另有 {unavailable_count} 个条目不可公开读取"
+            )
         preview = {
             "preview_id": uuid.uuid4().hex,
             "title": title,
@@ -1566,10 +1594,16 @@ class SmartCollections(_PluginBase):
             "source_url": SourceResolver.source_url(spec),
             "spec": asdict(spec),
             "total_count": len(rows),
+            "source_reported_total": resolved.reported_total,
+            "unavailable_count": unavailable_count,
             "movie_count": sum(row.get("media_type") == "movie" for row in rows),
             "tv_count": sum(row.get("media_type") == "tv" for row in rows),
             "matched_count": matched,
             "missing_count": len(rows) - matched,
+            "unresolved_count": sum(
+                not row.get("matched") and not row.get("tmdb_id")
+                for row in rows
+            ),
             "items": rows,
             "created_at": self._now(),
             "_created_monotonic": time.monotonic(),
@@ -1578,24 +1612,93 @@ class SmartCollections(_PluginBase):
         return preview
 
     @staticmethod
+    def _media_ref_from_emby_match(
+        source_item: MediaRef, match: Dict[str, Any]
+    ) -> MediaRef:
+        try:
+            tmdb_id = int(match.get("tmdb_id"))
+        except (TypeError, ValueError):
+            tmdb_id = None
+        return MediaRef(
+            media_type=match.get("media_type") or source_item.media_type,
+            tmdb_id=tmdb_id,
+            douban_id=source_item.douban_id,
+            title=source_item.title or match.get("name"),
+            year=source_item.year or match.get("year"),
+            poster_url=source_item.poster_url,
+            aliases=source_item.aliases,
+        )
+
+    def _resolve_large_douban_batch(
+        self,
+        items: List[MediaRef],
+        title_index: Dict[Tuple[str, Optional[int]], List[Dict[str, Any]]],
+        douban_cache: Dict[str, dict],
+        resolver: SourceResolver,
+    ) -> Dict[str, Optional[MediaRef]]:
+        """Resolve large mixed doulists concurrently without hammering Douban."""
+
+        if len(items) < 100:
+            return {}
+        pending = [
+            item
+            for item in items
+            if item.douban_id and not self._find_title_match(item, title_index)
+        ]
+        if not pending:
+            return {}
+
+        def resolve(item: MediaRef) -> Tuple[str, Optional[MediaRef]]:
+            return str(item.douban_id), self._resolve_media_ref(
+                item,
+                douban_cache,
+                resolver,
+                skip_douban_chain=True,
+            )
+
+        workers = min(6, len(pending))
+        with ThreadPoolExecutor(
+            max_workers=workers,
+            thread_name_prefix="SmartCollectionsTmdbFallback",
+        ) as executor:
+            return dict(executor.map(resolve, pending))
+
+    @staticmethod
     def _find_title_match(
         media_ref: MediaRef,
         title_index: Dict[Tuple[str, Optional[int]], List[Dict[str, Any]]],
     ) -> Optional[Dict[str, Any]]:
-        normalized = EmbyCollectionClient.normalize_title(media_ref.title)
-        if not normalized:
-            return None
-        candidates: Dict[str, Dict[str, Any]] = {}
-        for (title, year), records in title_index.items():
-            if title != normalized:
+        values: List[str] = []
+        for value in (media_ref.title, *media_ref.aliases):
+            for candidate in SourceResolver.title_candidates(value):
+                if candidate not in values:
+                    values.append(candidate)
+        season_hint = SourceResolver.has_season_marker(media_ref)
+        for value in values:
+            normalized = EmbyCollectionClient.normalize_title(value)
+            if not normalized:
                 continue
-            if media_ref.year and year and abs(int(media_ref.year) - int(year)) > 1:
-                continue
-            for record in records:
-                if media_ref.media_type in {"movie", "tv"} and record.get("media_type") != media_ref.media_type:
+            candidates: Dict[str, Dict[str, Any]] = {}
+            for (title, year), records in title_index.items():
+                if title != normalized:
                     continue
-                candidates[str(record.get("id"))] = record
-        return next(iter(candidates.values())) if len(candidates) == 1 else None
+                for record in records:
+                    if (
+                        media_ref.year
+                        and year
+                        and abs(int(media_ref.year) - int(year)) > 1
+                        and not (season_hint and record.get("media_type") == "tv")
+                    ):
+                        continue
+                    if (
+                        media_ref.media_type in {"movie", "tv"}
+                        and record.get("media_type") != media_ref.media_type
+                    ):
+                        continue
+                    candidates[str(record.get("id"))] = record
+            if len(candidates) == 1:
+                return next(iter(candidates.values()))
+        return None
 
     def _store_preview(self, preview: Dict[str, Any]) -> None:
         with self._preview_lock:
@@ -1954,10 +2057,33 @@ class SmartCollections(_PluginBase):
                 raise ValueError("无法确定 Emby 合集名称，请在配置中填写 name")
             item_result["name"] = collection_name
             item_result["source_items"] = len(resolved.items)
+            if resolved.reported_total and resolved.reported_total > len(resolved.items):
+                logger.warning(
+                    f"智能合集 {collection_name} 来源标称 {resolved.reported_total} 个条目，"
+                    f"公开页面实际返回 {len(resolved.items)} 个"
+                )
 
+            batch_resolutions = self._resolve_large_douban_batch(
+                items=resolved.items,
+                title_index=title_index,
+                douban_cache=douban_cache,
+                resolver=resolver,
+            )
             normalized: List[MediaRef] = []
             for source_item in resolved.items:
-                media_ref = self._resolve_media_ref(source_item, douban_cache)
+                title_match = self._find_title_match(source_item, title_index)
+                if title_match:
+                    normalized.append(
+                        self._media_ref_from_emby_match(source_item, title_match)
+                    )
+                    continue
+                resolution_key = str(source_item.douban_id or "")
+                if resolution_key in batch_resolutions:
+                    media_ref = batch_resolutions[resolution_key]
+                else:
+                    media_ref = self._resolve_media_ref(
+                        source_item, douban_cache, resolver
+                    )
                 if media_ref or source_item.title:
                     normalized.append(media_ref or source_item)
 
@@ -2029,7 +2155,11 @@ class SmartCollections(_PluginBase):
         return item_result
 
     def _resolve_media_ref(
-        self, media_ref: MediaRef, douban_cache: Dict[str, dict]
+        self,
+        media_ref: MediaRef,
+        douban_cache: Dict[str, dict],
+        resolver: SourceResolver,
+        skip_douban_chain: bool = False,
     ) -> Optional[MediaRef]:
         if media_ref.tmdb_id and media_ref.media_type in {"movie", "tv"}:
             return media_ref
@@ -2045,74 +2175,96 @@ class SmartCollections(_PluginBase):
                 title=cached.get("title") or media_ref.title,
                 year=cached.get("year") or media_ref.year,
                 poster_url=cached.get("poster_url") or media_ref.poster_url,
+                aliases=media_ref.aliases,
             )
 
-        tmdbinfo = MediaChain().get_tmdbinfo_by_doubanid(
-            doubanid=str(media_ref.douban_id)
+        tmdbinfo = None
+        attempted_douban_chain = not skip_douban_chain and (
+            time.monotonic()
+            >= float(getattr(self, "_douban_chain_cooldown_until", 0) or 0)
         )
-        if not tmdbinfo:
+        if attempted_douban_chain:
+            try:
+                tmdbinfo = MediaChain().get_tmdbinfo_by_doubanid(
+                    doubanid=str(media_ref.douban_id)
+                )
+            except Exception as exc:
+                logger.warning(
+                    f"智能合集 豆瓣 ID {media_ref.douban_id} 转换异常，改用标题搜索：{exc}"
+                )
+            if not tmdbinfo:
+                self._douban_chain_cooldown_until = time.monotonic() + 60
+
+        resolved: Optional[MediaRef] = None
+        if tmdbinfo:
+            try:
+                tmdb_id = int(tmdbinfo.get("id") or tmdbinfo.get("tmdb_id"))
+            except (TypeError, ValueError):
+                tmdb_id = None
+
+            raw_media_type = tmdbinfo.get("media_type") or tmdbinfo.get("type")
+            if isinstance(raw_media_type, MediaType):
+                media_type = (
+                    "movie"
+                    if raw_media_type == MediaType.MOVIE
+                    else "tv"
+                    if raw_media_type == MediaType.TV
+                    else None
+                )
+            else:
+                normalized_type = str(raw_media_type or "").strip().lower()
+                if normalized_type in {"movie", "电影"}:
+                    media_type = "movie"
+                elif normalized_type in {"tv", "series", "电视剧", "剧集"}:
+                    media_type = "tv"
+                elif tmdbinfo.get("title") is not None:
+                    media_type = "movie"
+                elif tmdbinfo.get("name") is not None:
+                    media_type = "tv"
+                else:
+                    media_type = None
+
+            if tmdb_id and media_type:
+                resolved = MediaRef(
+                    media_type=media_type,
+                    tmdb_id=tmdb_id,
+                    douban_id=media_ref.douban_id,
+                    title=tmdbinfo.get("title")
+                    or tmdbinfo.get("name")
+                    or media_ref.title,
+                    year=SourceResolver._extract_year(
+                        tmdbinfo.get("release_date")
+                        or tmdbinfo.get("first_air_date")
+                    )
+                    or media_ref.year,
+                    poster_url=SourceResolver._tmdb_poster(
+                        tmdbinfo.get("poster_path")
+                    )
+                    or media_ref.poster_url,
+                    aliases=media_ref.aliases,
+                )
+
+        if not resolved:
+            resolved = resolver.resolve_tmdb_by_title(media_ref)
+            if resolved:
+                logger.info(
+                    f"智能合集 豆瓣 ID {media_ref.douban_id} 已通过标题回退匹配 "
+                    f"TMDB {resolved.media_type}:{resolved.tmdb_id}"
+                )
+
+        if not resolved:
             logger.warning(
                 f"智能合集 豆瓣 ID {media_ref.douban_id} 未能匹配到 TMDB"
             )
             return None
-
-        try:
-            tmdb_id = int(tmdbinfo.get("id") or tmdbinfo.get("tmdb_id"))
-        except (TypeError, ValueError):
-            logger.warning(
-                f"智能合集 豆瓣 ID {media_ref.douban_id} 的 TMDB 匹配结果缺少有效 ID"
-            )
-            return None
-
-        raw_media_type = tmdbinfo.get("media_type") or tmdbinfo.get("type")
-        if isinstance(raw_media_type, MediaType):
-            media_type = (
-                "movie"
-                if raw_media_type == MediaType.MOVIE
-                else "tv"
-                if raw_media_type == MediaType.TV
-                else None
-            )
-        else:
-            normalized_type = str(raw_media_type or "").strip().lower()
-            if normalized_type in {"movie", "电影"}:
-                media_type = "movie"
-            elif normalized_type in {"tv", "series", "电视剧", "剧集"}:
-                media_type = "tv"
-            elif tmdbinfo.get("title") is not None:
-                media_type = "movie"
-            elif tmdbinfo.get("name") is not None:
-                media_type = "tv"
-            else:
-                media_type = None
-        if not media_type:
-            logger.warning(
-                f"智能合集 豆瓣 ID {media_ref.douban_id} 的 TMDB 匹配结果缺少媒体类型"
-            )
-            return None
-
-        title = tmdbinfo.get("title") or tmdbinfo.get("name") or media_ref.title
-        year = SourceResolver._extract_year(
-            tmdbinfo.get("release_date") or tmdbinfo.get("first_air_date")
-        ) or media_ref.year
-        poster_url = SourceResolver._tmdb_poster(
-            tmdbinfo.get("poster_path")
-        ) or media_ref.poster_url
         douban_cache[str(media_ref.douban_id)] = {
-            "type": media_type,
-            "tmdb_id": tmdb_id,
-            "title": title,
-            "year": year,
-            "poster_url": poster_url,
+            "type": resolved.media_type,
+            "tmdb_id": resolved.tmdb_id,
+            "title": resolved.title,
+            "year": resolved.year,
+            "poster_url": resolved.poster_url,
         }
-        return MediaRef(
-            media_type=media_type,
-            tmdb_id=tmdb_id,
-            douban_id=media_ref.douban_id,
-            title=title,
-            year=year,
-            poster_url=poster_url,
-        )
+        return resolved
 
     def _append_history(self, run_record: Dict[str, Any]):
         history = self.get_data("history") or []

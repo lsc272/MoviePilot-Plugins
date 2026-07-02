@@ -51,18 +51,19 @@ const _hoisted_30 = { class: "text-h5" };
 const _hoisted_31 = { class: "text-h5" };
 const _hoisted_32 = { class: "preview-table" };
 const _hoisted_33 = ["href"];
-const _hoisted_34 = { key: 1 };
-const _hoisted_35 = { class: "text-medium-emphasis" };
-const _hoisted_36 = {
-  key: 3,
+const _hoisted_34 = ["href"];
+const _hoisted_35 = { key: 2 };
+const _hoisted_36 = { class: "text-medium-emphasis" };
+const _hoisted_37 = {
+  key: 4,
   class: "text-caption text-medium-emphasis"
 };
-const _hoisted_37 = ["href"];
-const _hoisted_38 = {
+const _hoisted_38 = ["href"];
+const _hoisted_39 = {
   key: 1,
   class: "text-medium-emphasis"
 };
-const _hoisted_39 = {
+const _hoisted_40 = {
   key: 2,
   class: "text-caption text-medium-emphasis"
 };
@@ -117,7 +118,7 @@ computed(() => (preview.value?.items || []).filter(item => item.matched));
 const missingSubscribableItems = computed(() => (preview.value?.items || []).filter(
   item => !item.matched && item.tmdb_id && ['movie', 'tv'].includes(item.media_type) && !subscribedKeys.value.includes(item.key),
 ));
-const visiblePreviewItems = computed(() => (preview.value?.items || []).slice(0, 300));
+const visiblePreviewItems = computed(() => (preview.value?.items || []).slice(0, 500));
 const collectionTools = computed(() => status.value.collection_tools || {});
 const collectionInventory = computed(() => collectionTools.value.inventory || { total: 0, managed: 0, other: 0 });
 const backupOptions = computed(() => (collectionTools.value.backups || []).map(item => ({
@@ -1316,7 +1317,7 @@ return (_ctx, _cache) => {
                 default: _withCtx(() => [
                   _createElementVNode("div", _hoisted_22, [
                     _createElementVNode("div", _hoisted_23, _toDisplayString(preview.value.title), 1),
-                    _createElementVNode("div", _hoisted_24, "共 " + _toDisplayString(preview.value.total_count) + " · 电影 " + _toDisplayString(preview.value.movie_count) + " · 剧集 " + _toDisplayString(preview.value.tv_count) + " · Emby 已有 " + _toDisplayString(preview.value.matched_count) + " · 缺失 " + _toDisplayString(preview.value.missing_count), 1),
+                    _createElementVNode("div", _hoisted_24, "共 " + _toDisplayString(preview.value.total_count) + " · 电影 " + _toDisplayString(preview.value.movie_count) + " · 剧集 " + _toDisplayString(preview.value.tv_count) + " · Emby 已有 " + _toDisplayString(preview.value.matched_count) + " · 缺失 " + _toDisplayString(preview.value.missing_count) + " · 可订阅 " + _toDisplayString(missingSubscribableItems.value.length) + " · 待识别 " + _toDisplayString(preview.value.unresolved_count || 0), 1),
                     (preview.value.source_url)
                       ? (_openBlock(), _createElementBlock("a", {
                           key: 0,
@@ -1404,6 +1405,19 @@ return (_ctx, _cache) => {
                             rounded: "",
                             height: "7"
                           }, null, 8, ["model-value"])
+                        ]),
+                        _: 1
+                      }))
+                    : _createCommentVNode("", true),
+                  (preview.value.unavailable_count)
+                    ? (_openBlock(), _createBlock(_component_VAlert, {
+                        key: 1,
+                        type: "warning",
+                        variant: "tonal",
+                        class: "mb-3"
+                      }, {
+                        default: _withCtx(() => [
+                          _createTextVNode(" 来源页面标称 " + _toDisplayString(preview.value.source_reported_total) + " 个条目，但公开页面实际只返回 " + _toDisplayString(preview.value.total_count) + " 个；另有 " + _toDisplayString(preview.value.unavailable_count) + " 个条目可能已删除、失效或仅创建者可见。 ", 1)
                         ]),
                         _: 1
                       }))
@@ -1561,27 +1575,36 @@ return (_ctx, _cache) => {
                                 }, 1032, ["color"])
                               ]),
                               _createElementVNode("td", null, [
-                                (tmdbLink(item))
+                                (item.matched && item.emby_url)
                                   ? (_openBlock(), _createElementBlock("a", {
                                       key: 0,
-                                      href: tmdbLink(item),
+                                      href: item.emby_url,
                                       target: "_blank",
-                                      class: "item-link"
+                                      rel: "noopener",
+                                      class: "emby-link"
                                     }, _toDisplayString(item.title), 9, _hoisted_33))
-                                  : (_openBlock(), _createElementBlock("span", _hoisted_34, _toDisplayString(item.title), 1)),
-                                _createElementVNode("span", _hoisted_35, _toDisplayString(item.year ? `(${item.year})` : ''), 1),
+                                  : (tmdbLink(item))
+                                    ? (_openBlock(), _createElementBlock("a", {
+                                        key: 1,
+                                        href: tmdbLink(item),
+                                        target: "_blank",
+                                        rel: "noopener",
+                                        class: "item-link"
+                                      }, _toDisplayString(item.title), 9, _hoisted_34))
+                                    : (_openBlock(), _createElementBlock("span", _hoisted_35, _toDisplayString(item.title), 1)),
+                                _createElementVNode("span", _hoisted_36, _toDisplayString(item.year ? `(${item.year})` : ''), 1),
                                 _createVNode(_component_VChip, {
                                   size: "x-small",
                                   class: "ms-2"
                                 }, {
                                   default: _withCtx(() => [
-                                    _createTextVNode(_toDisplayString(item.media_type === 'tv' ? '剧集' : '电影'), 1)
+                                    _createTextVNode(_toDisplayString(item.media_type === 'tv' ? '剧集' : item.media_type === 'movie' ? '电影' : '未知'), 1)
                                   ]),
                                   _: 2
                                 }, 1024),
                                 (!item.matched && item.tmdb_id)
                                   ? (_openBlock(), _createBlock(_component_VBtn, {
-                                      key: 2,
+                                      key: 3,
                                       size: "x-small",
                                       color: "primary",
                                       variant: "tonal",
@@ -1598,7 +1621,7 @@ return (_ctx, _cache) => {
                                     }, 1032, ["loading", "disabled", "onClick"]))
                                   : _createCommentVNode("", true),
                                 (!item.matched)
-                                  ? (_openBlock(), _createElementBlock("div", _hoisted_36, _toDisplayString(item.missing_reason), 1))
+                                  ? (_openBlock(), _createElementBlock("div", _hoisted_37, _toDisplayString(item.missing_reason), 1))
                                   : _createCommentVNode("", true)
                               ]),
                               _createElementVNode("td", null, [
@@ -1609,10 +1632,10 @@ return (_ctx, _cache) => {
                                       target: "_blank",
                                       rel: "noopener",
                                       class: "emby-link"
-                                    }, _toDisplayString(item.emby_name), 9, _hoisted_37))
-                                  : (_openBlock(), _createElementBlock("span", _hoisted_38, _toDisplayString(item.emby_name || '—'), 1)),
+                                    }, _toDisplayString(item.emby_name), 9, _hoisted_38))
+                                  : (_openBlock(), _createElementBlock("span", _hoisted_39, _toDisplayString(item.emby_name || '—'), 1)),
                                 (item.match_method === 'title')
-                                  ? (_openBlock(), _createElementBlock("span", _hoisted_39, "（标题兜底）"))
+                                  ? (_openBlock(), _createElementBlock("span", _hoisted_40, "（标题兜底）"))
                                   : _createCommentVNode("", true)
                               ])
                             ]))
@@ -1622,15 +1645,15 @@ return (_ctx, _cache) => {
                       _: 1
                     })
                   ]),
-                  (preview.value.items?.length > 300)
+                  (preview.value.items?.length > 500)
                     ? (_openBlock(), _createBlock(_component_VAlert, {
-                        key: 1,
+                        key: 2,
                         type: "info",
                         variant: "tonal",
                         class: "mt-3"
                       }, {
                         default: _withCtx(() => [...(_cache[65] || (_cache[65] = [
-                          _createTextVNode("页面只展示前 300 条；同步仍会处理全部条目。", -1)
+                          _createTextVNode("页面只展示前 500 条；同步和一键订阅仍会处理全部条目。", -1)
                         ]))]),
                         _: 1
                       }))
@@ -1955,6 +1978,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const SmartCollectionsApp = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-4695722c"]]);
+const SmartCollectionsApp = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-86950922"]]);
 
 export { SmartCollectionsApp as S, _export_sfc as _ };

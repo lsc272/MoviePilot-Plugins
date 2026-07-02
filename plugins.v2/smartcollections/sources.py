@@ -2,7 +2,7 @@ import html
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
 from app.utils.http import RequestUtils
@@ -100,6 +100,7 @@ class MediaRef:
     title: Optional[str] = None
     year: Optional[int] = None
     poster_url: Optional[str] = None
+    aliases: Tuple[str, ...] = ()
 
 
 @dataclass
@@ -122,6 +123,7 @@ class ResolvedSource:
 
     title: Optional[str]
     items: List[MediaRef]
+    reported_total: Optional[int] = None
 
 
 class SourceResolver:
@@ -131,6 +133,9 @@ class SourceResolver:
     _DOUBAN_LIST_RE = re.compile(r"(?:douban\.com/doulist/)?(\d+)", re.I)
     _DOUBAN_SUBJECT_RE = re.compile(
         r"https?://movie\.douban\.com/subject/(\d+)/?", re.I
+    )
+    _SEASON_RE = re.compile(
+        r"(?:第\s*[0-9一二三四五六七八九十百]+\s*季|season\s*\d+)", re.I
     )
 
     def __init__(
@@ -442,6 +447,206 @@ class SourceResolver:
             return path
         return f"https://image.tmdb.org/t/p/w342/{path.lstrip('/')}"
 
+    @classmethod
+    def title_candidates(cls, value: Any) -> List[str]:
+        """Extract localized/original aliases from one mixed-language title."""
+
+        text = re.sub(r"\s+", " ", cls._clean_html(str(value or ""))).strip()
+        if not text:
+            return []
+
+        script_count = sum(
+            bool(re.search(pattern, text))
+            for pattern in (r"[\u3400-\u9fff]", r"[A-Za-z]", r"[\uac00-\ud7af]")
+        )
+        if script_count > 1:
+            segments = [
+                match.strip()
+                for match in re.findall(
+                    r"[\u3400-\u9fff][\u3400-\u9fff0-9第季部篇：:·・—\-（）()《》！？!?、\s]*"
+                    r"|[A-Za-z][A-Za-z0-9 .:'’&!?()\-]+"
+                    r"|[\uac00-\ud7af][\uac00-\ud7af0-9\s:·・\-]+",
+                    text,
+                )
+                if match.strip()
+            ]
+        else:
+            segments = [text]
+
+        candidates: List[str] = []
+
+        def add(candidate: str) -> None:
+            candidate = re.sub(r"\s+", " ", str(candidate or "")).strip(" -:：·")
+            normalized = cls._normalize_lookup_title(candidate)
+            if len(normalized) < 2:
+                return
+            if all(
+                cls._normalize_lookup_title(item) != normalized
+                for item in candidates
+            ):
+                candidates.append(candidate)
+
+        for segment in segments:
+            add(segment)
+        for segment in segments:
+            add(cls._SEASON_RE.sub("", segment))
+        for segment in segments:
+            if re.search(r"[\u3400-\u9fff]", segment):
+                for part in re.split(r"\s+", segment):
+                    if not cls._SEASON_RE.fullmatch(part):
+                        add(part)
+        return candidates
+
+    @classmethod
+    def has_season_marker(cls, media_ref: MediaRef) -> bool:
+        return any(
+            cls._SEASON_RE.search(value or "")
+            for value in (media_ref.title, *media_ref.aliases)
+        )
+
+    def resolve_tmdb_by_title(self, media_ref: MediaRef) -> Optional[MediaRef]:
+        """Use TMDB search when MoviePilot's Douban-ID lookup is rate limited."""
+
+        queries: List[str] = []
+        for value in (media_ref.title, *media_ref.aliases):
+            for candidate in self.title_candidates(value):
+                if candidate not in queries:
+                    queries.append(candidate)
+        if not queries:
+            return None
+
+        api_key = str(getattr(settings, "TMDB_API_KEY", "") or "").strip()
+        if not self._tmdb_token and not api_key:
+            return None
+
+        domain = getattr(settings, "TMDB_API_DOMAIN", None) or "api.themoviedb.org"
+        url = f"https://{domain}/3/search/multi"
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": settings.USER_AGENT,
+        }
+        if self._tmdb_token:
+            headers["Authorization"] = f"Bearer {self._tmdb_token}"
+
+        best: Optional[Dict[str, Any]] = None
+        best_score = -10_000.0
+        season_hint = self.has_season_marker(media_ref)
+        query_norms = {
+            self._normalize_lookup_title(value)
+            for value in queries
+            if self._normalize_lookup_title(value)
+        }
+
+        for query in queries[:6]:
+            params: Dict[str, Any] = {
+                "query": query,
+                "language": self._language,
+                "include_adult": "false",
+            }
+            if not self._tmdb_token:
+                params["api_key"] = api_key
+            try:
+                response = RequestUtils(
+                    headers=headers, proxies=self._proxies, timeout=20
+                ).get_res(url, params=params)
+                if not response or response.status_code != 200:
+                    continue
+                results = (response.json() or {}).get("results") or []
+            except Exception:
+                continue
+
+            for result in results:
+                media_type = str(result.get("media_type") or "").lower()
+                if media_type not in {"movie", "tv"}:
+                    continue
+                score = self._score_tmdb_search_result(
+                    media_ref=media_ref,
+                    result=result,
+                    query_norms=query_norms,
+                    season_hint=season_hint,
+                )
+                if score > best_score:
+                    best = result
+                    best_score = score
+            if best_score >= 160:
+                break
+
+        if not best or best_score < 90:
+            return None
+        try:
+            tmdb_id = int(best.get("id"))
+        except (TypeError, ValueError):
+            return None
+        return MediaRef(
+            media_type=str(best.get("media_type")),
+            tmdb_id=tmdb_id,
+            douban_id=media_ref.douban_id,
+            title=best.get("title") or best.get("name") or media_ref.title,
+            year=self._extract_year(
+                best.get("release_date") or best.get("first_air_date")
+            )
+            or media_ref.year,
+            poster_url=self._tmdb_poster(best.get("poster_path"))
+            or media_ref.poster_url,
+            aliases=media_ref.aliases,
+        )
+
+    @classmethod
+    def _score_tmdb_search_result(
+        cls,
+        media_ref: MediaRef,
+        result: Dict[str, Any],
+        query_norms: set,
+        season_hint: bool,
+    ) -> float:
+        media_type = str(result.get("media_type") or "").lower()
+        names = {
+            cls._normalize_lookup_title(value)
+            for value in (
+                result.get("title"),
+                result.get("name"),
+                result.get("original_title"),
+                result.get("original_name"),
+            )
+            if value
+        }
+        names.discard("")
+        score = 0.0
+        if names & query_norms:
+            score += 120
+        elif any(
+            query in name or name in query
+            for query in query_norms
+            for name in names
+            if min(len(query), len(name)) >= 3
+        ):
+            score += 60
+
+        if media_ref.media_type in {"movie", "tv"}:
+            score += 25 if media_ref.media_type == media_type else -30
+        if season_hint:
+            score += 65 if media_type == "tv" else -80
+
+        result_year = cls._extract_year(
+            result.get("release_date") or result.get("first_air_date")
+        )
+        if media_ref.year and result_year and not (season_hint and media_type == "tv"):
+            difference = abs(int(media_ref.year) - int(result_year))
+            score += 50 if difference == 0 else 25 if difference == 1 else -80
+        try:
+            score += min(10.0, float(result.get("popularity") or 0) / 10)
+        except (TypeError, ValueError):
+            pass
+        return score
+
+    @staticmethod
+    def _normalize_lookup_title(value: Any) -> str:
+        return re.sub(
+            r"[^0-9a-z\u3400-\u9fff\uac00-\ud7af]+",
+            "",
+            str(value or "").lower(),
+        )
+
     def _fetch_douban_list(
         self, value: str, default_media_type: Optional[str] = None
     ) -> ResolvedSource:
@@ -451,6 +656,7 @@ class SourceResolver:
         list_id = match.group(1)
         url = f"https://www.douban.com/doulist/{list_id}/"
         title: Optional[str] = None
+        reported_total: Optional[int] = None
         subject_items: List[MediaRef] = []
         seen = set()
         start = 0
@@ -484,14 +690,23 @@ class SourceResolver:
                 )
                 if title_match:
                     title = self._clean_html(title_match.group(1))
+                total_match = re.search(
+                    r'<div\s+class="doulist-filter">[\s\S]*?全部\s*<span>\((\d+)\)</span>',
+                    page_html,
+                    flags=re.I,
+                )
+                if total_match:
+                    reported_total = int(total_match.group(1))
 
             page_items = self._parse_douban_page(
-                page_html, media_type=default_media_type or "movie"
+                page_html, media_type=default_media_type
             )
             if not page_items:
                 page_items = [
                     MediaRef(
-                        media_type=default_media_type or "movie",
+                        media_type=default_media_type
+                        if default_media_type in {"movie", "tv"}
+                        else None,
                         douban_id=subject_id,
                     )
                     for subject_id in self._DOUBAN_SUBJECT_RE.findall(page_html)
@@ -513,11 +728,12 @@ class SourceResolver:
         return ResolvedSource(
             title=title,
             items=subject_items,
+            reported_total=reported_total,
         )
 
     @classmethod
     def _parse_douban_page(
-        cls, page_html: str, media_type: str = "movie"
+        cls, page_html: str, media_type: Optional[str] = None
     ) -> List[MediaRef]:
         """Parse public doulist cards while retaining data useful for preview/fallback."""
 
@@ -538,15 +754,24 @@ class SourceResolver:
                 block,
                 flags=re.I,
             )
-            title = cls._clean_html(title_match.group(1)) if title_match else None
+            raw_title = cls._clean_html(title_match.group(1)) if title_match else None
+            aliases: Tuple[str, ...] = ()
+            title = raw_title
             if title:
                 title = re.sub(r"^播放全片\s*", "", title).strip()
+                raw_candidates = cls.title_candidates(title)
                 if re.search(r"[\u4e00-\u9fff]", title):
                     title = re.sub(
-                        r"\s+[A-Za-z][A-Za-z0-9\s:'’.,!?&()\-]+$",
+                        r"\s+(?:[A-Za-z]|[\uac00-\ud7af]).*$",
                         "",
                         title,
                     ).strip()
+                title_key = cls._normalize_lookup_title(title)
+                aliases = tuple(
+                    candidate
+                    for candidate in raw_candidates
+                    if cls._normalize_lookup_title(candidate) != title_key
+                )
             year_match = re.search(r"年份:\s*((?:19|20)\d{2})", block, flags=re.I)
             poster_match = re.search(
                 r'<div\s+class="post">[\s\S]*?<img[^>]+src="([^"]+)"',
@@ -555,13 +780,14 @@ class SourceResolver:
             )
             result.append(
                 MediaRef(
-                    media_type=media_type if media_type in {"movie", "tv"} else "movie",
+                    media_type=media_type if media_type in {"movie", "tv"} else None,
                     douban_id=subject_match.group(1),
                     title=title,
                     year=int(year_match.group(1)) if year_match else None,
                     poster_url=html.unescape(poster_match.group(1))
                     if poster_match
                     else None,
+                    aliases=aliases,
                 )
             )
         return result

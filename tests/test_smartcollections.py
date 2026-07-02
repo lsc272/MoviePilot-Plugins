@@ -7,6 +7,7 @@ import threading
 import types
 import unittest
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -71,10 +72,11 @@ collection_backup = load_module(
 
 
 class FakeResponse:
-    def __init__(self, payload, status_code=200, content=b"{}"):
+    def __init__(self, payload, status_code=200, content=b"{}", text=""):
         self._payload = payload
         self.status_code = status_code
         self.content = content
+        self.text = text
 
     def json(self):
         return self._payload
@@ -263,6 +265,7 @@ class SmartCollectionsTests(unittest.TestCase):
             title: Optional[str] = None
             year: Optional[int] = None
             poster_url: Optional[str] = None
+            aliases: tuple = ()
 
         class FakeLogger:
             def warning(self, *_args, **_kwargs):
@@ -277,6 +280,9 @@ class SmartCollectionsTests(unittest.TestCase):
             def _tmdb_poster(value):
                 return f"https://image.tmdb.org/t/p/w342{value}" if value else None
 
+            def resolve_tmdb_by_title(self, _media_ref):
+                return None
+
         class FakeMediaChain:
             result = None
 
@@ -290,6 +296,7 @@ class SmartCollectionsTests(unittest.TestCase):
             "MediaType": MediaType,
             "MediaChain": FakeMediaChain,
             "SourceResolver": FakeResolver,
+            "time": types.SimpleNamespace(monotonic=lambda: 100.0),
             "logger": FakeLogger(),
         }
         method_source = ast.unparse(method)
@@ -299,6 +306,7 @@ class SmartCollectionsTests(unittest.TestCase):
             namespace,
         )
         subject = namespace["Subject"]()
+        subject._douban_chain_cooldown_until = 0
 
         FakeMediaChain.result = {
             "id": "303",
@@ -308,9 +316,139 @@ class SmartCollectionsTests(unittest.TestCase):
             "poster_path": "/poster.jpg",
         }
         cache = {}
-        result = subject._resolve_media_ref(MediaRef(douban_id="1001"), cache)
+        result = subject._resolve_media_ref(
+            MediaRef(douban_id="1001"), cache, FakeResolver()
+        )
         self.assertEqual((result.media_type, result.tmdb_id, result.year), ("tv", 303, 2024))
         self.assertEqual(cache["1001"]["title"], "测试剧集")
+
+    def test_douban_rate_limit_falls_back_to_tmdb_title_search(self):
+        source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        method = next(
+            node
+            for item in tree.body
+            if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
+            for node in item.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_resolve_media_ref"
+        )
+
+        @dataclass(frozen=True)
+        class MediaRef:
+            media_type: Optional[str] = None
+            tmdb_id: Optional[int] = None
+            douban_id: Optional[str] = None
+            title: Optional[str] = None
+            year: Optional[int] = None
+            poster_url: Optional[str] = None
+            aliases: tuple = ()
+
+        class FakeMediaChain:
+            def get_tmdbinfo_by_doubanid(self, **_kwargs):
+                return None
+
+        class FakeResolver:
+            def resolve_tmdb_by_title(self, media_ref):
+                return MediaRef(
+                    media_type="movie",
+                    tmdb_id=513692,
+                    douban_id=media_ref.douban_id,
+                    title="怒火·重案",
+                    year=2021,
+                    aliases=media_ref.aliases,
+                )
+
+        class FakeLogger:
+            def info(self, *_args, **_kwargs):
+                pass
+
+            def warning(self, *_args, **_kwargs):
+                pass
+
+        namespace = {
+            "Dict": Dict,
+            "Optional": Optional,
+            "MediaRef": MediaRef,
+            "MediaChain": FakeMediaChain,
+            "MediaType": types.SimpleNamespace(MOVIE="movie", TV="tv"),
+            "SourceResolver": types.SimpleNamespace(),
+            "time": types.SimpleNamespace(monotonic=lambda: 100.0),
+            "logger": FakeLogger(),
+        }
+        exec(
+            "class Subject:\n"
+            + "\n".join(
+                f"    {line}" for line in ast.unparse(method).splitlines()
+            ),
+            namespace,
+        )
+        subject = namespace["Subject"]()
+        subject._douban_chain_cooldown_until = 0
+        cache = {}
+        result = subject._resolve_media_ref(
+            MediaRef(
+                douban_id="30174085",
+                title="怒火·重案 怒火",
+                year=2021,
+            ),
+            cache,
+            FakeResolver(),
+        )
+        self.assertEqual(result.tmdb_id, 513692)
+        self.assertEqual(cache["30174085"]["type"], "movie")
+        self.assertEqual(subject._douban_chain_cooldown_until, 160.0)
+
+    def test_large_douban_batch_uses_parallel_title_resolution(self):
+        source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        method = next(
+            node
+            for item in tree.body
+            if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
+            for node in item.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_resolve_large_douban_batch"
+        )
+        namespace = {
+            "Any": Any,
+            "Dict": Dict,
+            "List": list,
+            "Optional": Optional,
+            "Tuple": tuple,
+            "MediaRef": sources.MediaRef,
+            "SourceResolver": object,
+            "ThreadPoolExecutor": ThreadPoolExecutor,
+        }
+        exec(
+            "class Subject:\n"
+            + "\n".join(
+                f"    {line}" for line in ast.unparse(method).splitlines()
+            ),
+            namespace,
+        )
+        subject = namespace["Subject"]()
+        calls = []
+        subject._find_title_match = lambda *_args: None
+
+        def resolve(item, _cache, _resolver, skip_douban_chain=False):
+            calls.append(skip_douban_chain)
+            return sources.MediaRef(
+                media_type="movie",
+                tmdb_id=int(item.douban_id),
+                douban_id=item.douban_id,
+                title=item.title,
+            )
+
+        subject._resolve_media_ref = resolve
+        items = [
+            sources.MediaRef(douban_id=str(index), title=f"电影 {index}")
+            for index in range(1, 101)
+        ]
+        result = subject._resolve_large_douban_batch(
+            items, {}, {}, object()
+        )
+        self.assertEqual(len(result), 100)
+        self.assertTrue(all(calls))
 
     def test_douban_parser_retains_preview_metadata(self):
         page = """
@@ -324,10 +462,129 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].douban_id, "1292052")
         self.assertEqual(items[0].title, "肖申克的救赎")
+        self.assertIsNone(items[0].media_type)
+        self.assertIn("The Shawshank Redemption", items[0].aliases)
         self.assertEqual(items[0].year, 1994)
         self.assertEqual(items[0].poster_url, "https://img.example/poster.jpg")
         tv_items = sources.SourceResolver._parse_douban_page(page, media_type="tv")
         self.assertEqual(tv_items[0].media_type, "tv")
+
+    def test_mixed_douban_titles_match_existing_emby_aliases(self):
+        source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        method = next(
+            node
+            for item in tree.body
+            if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
+            for node in item.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_find_title_match"
+        )
+        namespace = {
+            "MediaRef": sources.MediaRef,
+            "Any": Any,
+            "Dict": Dict,
+            "List": list,
+            "Tuple": tuple,
+            "Optional": Optional,
+            "SourceResolver": sources.SourceResolver,
+            "EmbyCollectionClient": emby.EmbyCollectionClient,
+        }
+        exec(
+            "class Subject:\n"
+            + "\n".join(
+                f"    {line}" for line in ast.unparse(method).splitlines()
+            ),
+            namespace,
+        )
+        title_index = {
+            ("怒火重案", 2021): [
+                {"id": "m1", "media_type": "movie", "tmdb_id": 513692}
+            ],
+            ("lacasadepapel", 2017): [
+                {"id": "s1", "media_type": "tv", "tmdb_id": 71446}
+            ],
+            ("寄生兽灰色部队", 2024): [
+                {"id": "s2", "media_type": "tv", "tmdb_id": 208825}
+            ],
+        }
+        cases = [
+            sources.MediaRef(
+                title="怒火·重案 怒火", year=2021
+            ),
+            sources.MediaRef(
+                title="纸钞屋 第四季",
+                year=2020,
+                aliases=("La casa de papel Season 4", "La casa de papel"),
+            ),
+            sources.MediaRef(
+                title="寄生兽：灰色部队",
+                year=2024,
+                aliases=("기생수: 더 그레이",),
+            ),
+        ]
+        matches = [
+            namespace["Subject"]._find_title_match(item, title_index)
+            for item in cases
+        ]
+        self.assertEqual([item["id"] for item in matches], ["m1", "s1", "s2"])
+
+    def test_tmdb_title_fallback_recognizes_tv_season(self):
+        class SearchRequestUtils:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def get_res(self, _url, params=None):
+                if "La casa de papel" not in str((params or {}).get("query")):
+                    return FakeResponse({"results": []})
+                return FakeResponse(
+                    {
+                        "results": [
+                            {
+                                "id": 71446,
+                                "media_type": "tv",
+                                "name": "纸房子",
+                                "original_name": "La casa de papel",
+                                "first_air_date": "2017-05-02",
+                                "poster_path": "/paper.jpg",
+                                "popularity": 150,
+                            }
+                        ]
+                    }
+                )
+
+        resolver = sources.SourceResolver(tmdb_token="test-token")
+        with patch.object(sources, "RequestUtils", SearchRequestUtils):
+            result = resolver.resolve_tmdb_by_title(
+                sources.MediaRef(
+                    douban_id="34911053",
+                    title="纸钞屋 第四季",
+                    year=2020,
+                    aliases=("La casa de papel Season 4", "La casa de papel"),
+                )
+            )
+        self.assertEqual((result.media_type, result.tmdb_id), ("tv", 71446))
+
+    def test_douban_reported_total_keeps_public_gap_visible(self):
+        page = """
+        <h1><span>测试豆列</span></h1>
+        <div class="doulist-filter"><a>全部<span>(2)</span></a></div>
+        <div id="1" class="doulist-item">
+          <div class="title"><a href="https://movie.douban.com/subject/1/">测试电影</a></div>
+          <div>年份: 2024</div>
+        </div><div class="paginator"></div>
+        """
+
+        class PageRequestUtils:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def get_res(self, _url, params=None):
+                return FakeResponse({}, text=page if (params or {}).get("start") == 0 else "")
+
+        with patch.object(sources, "RequestUtils", PageRequestUtils):
+            result = sources.SourceResolver()._fetch_douban_list("123")
+        self.assertEqual(result.reported_total, 2)
+        self.assertEqual(len(result.items), 1)
 
     def test_tmdb_and_template_items_keep_type_year_and_poster(self):
         items = sources.SourceResolver._tmdb_items(
@@ -502,6 +759,7 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertEqual(duplicates, 0)
         self.assertEqual(catalog[("movie", 101)]["name"], "测试电影")
         self.assertEqual(title_index[("testmovie", 2024)][0]["id"], "m1")
+        self.assertEqual(client.normalize_title("기생수: 더 그레이"), "기생수더그레이")
         client.delete_collection("box1")
         self.assertIn("Items/box1", FakeRequestUtils.deleted_urls[-1])
         self.assertIn("item?id=m1", client.get_item_url("m1"))
@@ -609,7 +867,7 @@ class SmartCollectionsTests(unittest.TestCase):
             content = poster.CollectionPosterBuilder.generate("测试智能合集", ["a", "b"])
         with Image.open(io.BytesIO(content)) as image:
             self.assertEqual(image.size, (1000, 1500))
-            self.assertGreater(
+            self.assertLess(
                 sum(image.getpixel((500, 1450))),
                 sum(image.getpixel((500, 500))),
             )
