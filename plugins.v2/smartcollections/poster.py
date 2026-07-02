@@ -15,7 +15,7 @@ class CollectionPosterBuilder:
     HEIGHT = 1500
     CARD_RADIUS = 30
     WALL_ANGLE = -13
-    TITLE_TRACKING = 2
+    TITLE_TRACKING = 6
 
     _FONT_DIR = Path(__file__).resolve().parent / "assets" / "fonts"
 
@@ -30,7 +30,7 @@ class CollectionPosterBuilder:
         # 底部渐变：原来是浅灰白色 (240, 243, 248)，这里改成黑色
         cls._apply_bottom_up_gradient(
             canvas,
-            start_y=720,
+            start_y=650,
             bottom_alpha=252,
             color=(0, 0, 0),
         )
@@ -151,25 +151,34 @@ class CollectionPosterBuilder:
 
         font, lines, line_height = cls._fit_title(draw, title)
         total_height = line_height * len(lines)
-        title_y = cls.HEIGHT - 92 - total_height
+        title_y = cls.HEIGHT - 105 - total_height
 
-        # 标题上方短横线：原来是深色，这里改成白色，适配黑色渐变背景
+        ornament_y = title_y - 54
+        gold = (232, 181, 64, 210)
         draw.rounded_rectangle(
-            (72, title_y - 36, 146, title_y - 30),
-            radius=3,
-            fill=(255, 255, 255, 205),
+            (72, ornament_y, 430, ornament_y + 3), radius=1, fill=gold
+        )
+        draw.rounded_rectangle(
+            (570, ornament_y, 928, ornament_y + 3), radius=1, fill=gold
+        )
+        draw.polygon(
+            (
+                (500, ornament_y - 6),
+                (508, ornament_y + 1),
+                (500, ornament_y + 8),
+                (492, ornament_y + 1),
+            ),
+            fill=(255, 216, 112, 235),
         )
 
         for index, line in enumerate(lines):
             y = title_y + index * line_height
-            cls._draw_text_with_tracking(
-                draw,
-                (72, y),
+            width = cls._tracked_text_width(draw, line, font, cls.TITLE_TRACKING)
+            cls._draw_gold_text(
+                canvas,
+                (max(48, round((cls.WIDTH - width) / 2)), y),
                 line,
                 font,
-                # 标题文字：原来是深色，这里改成白色，适配黑色渐变背景
-                fill=(255, 255, 255, 255),
-                tracking=cls.TITLE_TRACKING,
             )
 
     @classmethod
@@ -182,22 +191,83 @@ class CollectionPosterBuilder:
 
         # Prefer a calm single-line lockup when the title can fit at a useful
         # display size. Long titles only move to two lines after this pass.
-        for size in range(90, 55, -4):
+        for size in range(124, 71, -4):
             font = cls._font(size)
-            lines = cls._wrap_text(draw, value, font, 850)
-            line_height = size + 22
+            lines = cls._wrap_text(draw, value, font, 890)
+            line_height = size + 24
             if len(lines) == 1:
                 return font, lines, line_height
 
-        for size in range(78, 55, -4):
+        for size in range(112, 67, -4):
             font = cls._font(size)
-            lines = cls._wrap_text(draw, value, font, 850)
-            line_height = size + 22
-            if len(lines) <= 2 and len(lines) * line_height <= 240:
+            lines = cls._wrap_text(draw, value, font, 890)
+            line_height = size + 24
+            if len(lines) <= 2 and len(lines) * line_height <= 290:
                 return font, lines, line_height
 
-        font = cls._font(56)
-        return font, cls._wrap_text(draw, value, font, 850)[:2], 74
+        font = cls._font(68)
+        return font, cls._wrap_text(draw, value, font, 890)[:2], 88
+
+    @staticmethod
+    def _tracked_text_width(
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        font: ImageFont.ImageFont,
+        tracking: int,
+    ) -> int:
+        width = 0
+        for index, char in enumerate(text):
+            box = draw.textbbox((0, 0), char, font=font, stroke_width=1)
+            width += box[2] - box[0]
+            if index < len(text) - 1:
+                width += tracking
+        return width
+
+    @classmethod
+    def _draw_gold_text(
+        cls,
+        canvas: Image.Image,
+        position: Tuple[int, int],
+        text: str,
+        font: ImageFont.ImageFont,
+    ) -> None:
+        mask = Image.new("L", canvas.size, 0)
+        mask_draw = ImageDraw.Draw(mask)
+        x, y = position
+        for char in text:
+            mask_draw.text(
+                (x, y),
+                char,
+                font=font,
+                fill=255,
+                stroke_width=1,
+                stroke_fill=255,
+            )
+            box = mask_draw.textbbox((x, y), char, font=font, stroke_width=1)
+            x += box[2] - box[0] + cls.TITLE_TRACKING
+
+        shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+        shadow_mask = mask.filter(ImageFilter.GaussianBlur(7))
+        shadow.paste((0, 0, 0, 185), (0, 0), shadow_mask)
+        canvas.alpha_composite(shadow)
+
+        gold_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+        pixels = gold_layer.load()
+        top = max(0, position[1])
+        bottom = min(cls.HEIGHT, position[1] + getattr(font, "size", 100) + 24)
+        span = max(1, bottom - top)
+        for row in range(top, bottom):
+            ratio = (row - top) / span
+            color = (
+                round(255 - 28 * ratio),
+                round(222 - 55 * ratio),
+                round(128 - 65 * ratio),
+                255,
+            )
+            for column in range(cls.WIDTH):
+                pixels[column, row] = color
+        gold_layer.putalpha(mask)
+        canvas.alpha_composite(gold_layer)
 
     @classmethod
     def _apply_bottom_up_gradient(

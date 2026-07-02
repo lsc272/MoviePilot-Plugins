@@ -1,17 +1,18 @@
 import ast
 import importlib.util
 import io
+import json
 import sys
 import tempfile
 import threading
 import types
 import unittest
 import zipfile
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 from unittest.mock import patch
 
 from PIL import Image
@@ -415,9 +416,11 @@ class SmartCollectionsTests(unittest.TestCase):
             "List": list,
             "Optional": Optional,
             "Tuple": tuple,
+            "Callable": Callable,
             "MediaRef": sources.MediaRef,
             "SourceResolver": object,
             "ThreadPoolExecutor": ThreadPoolExecutor,
+            "as_completed": as_completed,
         }
         exec(
             "class Subject:\n"
@@ -642,6 +645,15 @@ class SmartCollectionsTests(unittest.TestCase):
             self.assertEqual(
                 definition["url"], f"https://www.themoviedb.org/list/{list_id}"
             )
+        requested_ids = {
+            "8648821", "8649224", "8649231", "8649058", "8649050", "8648851",
+            "8648850", "8649219", "8649220", "8649218", "8649217", "8649041",
+        }
+        self.assertTrue(
+            requested_ids.issubset(
+                {str(item.get("list_id")) for item in sources.POPULAR_TMDB_LISTS}
+            )
+        )
         douban_expected = {
             "240962": "★豆瓣高分电影榜★ （上）9.7-8.6分",
             "243559": "★豆瓣高分电影榜★ （中）8.5-8.3分",
@@ -679,6 +691,53 @@ class SmartCollectionsTests(unittest.TestCase):
         ):
             resolved = resolver._fetch_tmdb_builtin("finly_golden_globes")
         self.assertEqual(resolved.title, "来源实时标题")
+
+    def test_tmdb_list_metadata_and_id_lookup_keep_description_count_and_poster(self):
+        class MetadataRequestUtils:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def get_res(self, url, params=None):
+                if "/4/list/" in url:
+                    return FakeResponse(
+                        {
+                            "name": "实时片单标题",
+                            "description": "实时片单简介",
+                            "total_results": 321,
+                            "total_pages": 1,
+                            "results": [
+                                {
+                                    "id": 101,
+                                    "media_type": "movie",
+                                    "title": "测试电影",
+                                    "release_date": "2024-01-01",
+                                    "poster_path": "/list.jpg",
+                                }
+                            ],
+                        }
+                    )
+                return FakeResponse(
+                    {
+                        "id": 101,
+                        "title": "测试电影",
+                        "release_date": "2024-01-01",
+                        "poster_path": "/detail.jpg",
+                    }
+                )
+
+        resolver = sources.SourceResolver(tmdb_token="token", max_items=2000)
+        with patch.object(sources, "RequestUtils", MetadataRequestUtils):
+            resolved = resolver._fetch_tmdb_v4("8648821")
+            detail = resolver.resolve_tmdb_by_id(
+                sources.MediaRef(douban_id="1", title="测试电影"),
+                "movie",
+                101,
+            )
+        self.assertEqual(resolved.title, "实时片单标题")
+        self.assertEqual(resolved.description, "实时片单简介")
+        self.assertEqual(resolved.reported_total, 321)
+        self.assertTrue(resolved.items[0].poster_url.endswith("/list.jpg"))
+        self.assertTrue(detail.poster_url.endswith("/detail.jpg"))
 
     def test_subscribe_missing_filters_preview_and_reports_progress(self):
         source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
@@ -786,6 +845,17 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertEqual(restored.added, 1)
         self.assertTrue(any("Collections/box1/Items" in item[0] for item in fake.uploaded))
         self.assertTrue(any("Items/box1?" in item[0] for item in fake.uploaded))
+        fake.uploaded.clear()
+        synced = client.sync_collection(
+            "测试合集", ["m1"], mode="sync", overview="来自片单的简介"
+        )
+        self.assertFalse(synced.created)
+        metadata_payloads = [
+            json.loads(data)
+            for url, data, _headers in fake.uploaded
+            if "Items/box1?" in url and data
+        ]
+        self.assertEqual(metadata_payloads[-1]["Overview"], "来自片单的简介")
 
     def test_other_collection_backup_cleanup_and_restore(self):
         class FakeBackupClient:
@@ -854,6 +924,89 @@ class SmartCollectionsTests(unittest.TestCase):
                 manager.backup_and_cleanup({"smart1"}, "测试 Emby")
             self.assertEqual(failing.deleted, [])
 
+    def test_background_preview_reports_progress_result_and_notification(self):
+        source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        method_names = {
+            "_run_preview_task",
+            "_preview_task_snapshot",
+            "_set_preview_task_status",
+        }
+        methods = [
+            node
+            for item in tree.body
+            if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
+            for node in item.body
+            if isinstance(node, ast.FunctionDef) and node.name in method_names
+        ]
+
+        class FakeLogger:
+            def exception(self, *_args, **_kwargs):
+                pass
+
+        namespace = {
+            "Any": Any,
+            "Dict": Dict,
+            "CollectionSpec": object,
+            "NotificationType": types.SimpleNamespace(Plugin="plugin"),
+            "logger": FakeLogger(),
+        }
+        exec(
+            "class Subject:\n"
+            + "\n".join(
+                f"    {line}"
+                for method in methods
+                for line in ast.unparse(method).splitlines()
+            ),
+            namespace,
+        )
+        subject = namespace["Subject"]()
+        subject._preview_task_lock = threading.Lock()
+        subject._preview_task_lock.acquire()
+        subject._preview_task_status_lock = threading.RLock()
+        subject._preview_task_status = {
+            "task_id": "task1",
+            "running": True,
+            "progress": 1,
+            "message": "准备中",
+            "result": None,
+            "error": None,
+        }
+        notifications = []
+        subject.post_message = lambda **kwargs: notifications.append(kwargs)
+
+        def build_preview(_spec, progress=None):
+            progress(55, "正在匹配")
+            return {
+                "title": "测试片单",
+                "total_count": 10,
+                "matched_count": 8,
+                "missing_count": 2,
+            }
+
+        subject._build_preview = build_preview
+        subject._run_preview_task("task1", object())
+        snapshot = subject._preview_task_snapshot()
+        self.assertFalse(snapshot["running"])
+        self.assertEqual(snapshot["progress"], 100)
+        self.assertEqual(snapshot["result"]["matched_count"], 8)
+        self.assertIn("预览匹配完成", notifications[-1]["title"])
+        self.assertFalse(subject._preview_task_lock.locked())
+
+    def test_frontend_keeps_tmdb_and_emby_links_separate_and_shows_async_metadata(self):
+        frontend = (PLUGIN / "src" / "components" / "SmartCollectionsApp.vue").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('v-if="tmdbLink(item)"', frontend)
+        self.assertNotIn('v-if="item.matched && item.emby_url"', frontend)
+        self.assertIn('referrerpolicy="no-referrer"', frontend)
+        self.assertIn("slice(0, 2000)", frontend)
+        self.assertIn("/preview/status", frontend)
+        self.assertIn("preview.description", frontend)
+        self.assertIn("source.item_count", frontend)
+        self.assertIn("/collections/resync/all", frontend)
+        self.assertIn("/collections/schedule", frontend)
+
     def test_collection_poster_generate_and_normalize(self):
         source_images = [
             Image.new("RGB", (400, 600), (30 + index * 20, 80, 150))
@@ -871,6 +1024,14 @@ class SmartCollectionsTests(unittest.TestCase):
                 sum(image.getpixel((500, 1450))),
                 sum(image.getpixel((500, 500))),
             )
+            gold_pixels = sum(
+                1
+                for red, green, blue in image.crop(
+                    (0, 1050, 1000, 1500)
+                ).get_flattened_data()
+                if red > 200 and green > 130 and blue < 150
+            )
+            self.assertGreater(gold_pixels, 1000)
         normalized = poster.CollectionPosterBuilder.normalize_upload(content)
         self.assertTrue(normalized.startswith(b"\xff\xd8"))
         contained = poster.CollectionPosterBuilder._contain(source_images[0], 407, 439)

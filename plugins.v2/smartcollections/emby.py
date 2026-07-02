@@ -189,6 +189,7 @@ class EmbyCollectionClient:
         name: str,
         item_ids: Iterable[str],
         mode: str = "sync",
+        overview: Optional[str] = None,
     ) -> EmbySyncResult:
         desired: Set[str] = {str(item_id) for item_id in item_ids if item_id}
         if not desired:
@@ -197,26 +198,33 @@ class EmbyCollectionClient:
         collection_id = self.find_collection(name)
         if not collection_id:
             collection_id = self._create_collection(name, sorted(desired))
-            return EmbySyncResult(
+            result = EmbySyncResult(
                 collection_id=collection_id,
                 created=True,
                 added=len(desired),
                 removed=0,
             )
+        else:
+            current = self._collection_item_ids(collection_id)
+            to_add = desired - current
+            to_remove = current - desired if mode == "sync" else set()
+            if to_add:
+                self._change_items(collection_id, to_add, remove=False)
+            if to_remove:
+                self._change_items(collection_id, to_remove, remove=True)
+            result = EmbySyncResult(
+                collection_id=collection_id,
+                created=False,
+                added=len(to_add),
+                removed=len(to_remove),
+            )
 
-        current = self._collection_item_ids(collection_id)
-        to_add = desired - current
-        to_remove = current - desired if mode == "sync" else set()
-        if to_add:
-            self._change_items(collection_id, to_add, remove=False)
-        if to_remove:
-            self._change_items(collection_id, to_remove, remove=True)
-        return EmbySyncResult(
-            collection_id=collection_id,
-            created=False,
-            added=len(to_add),
-            removed=len(to_remove),
-        )
+        if overview is not None:
+            self._update_collection_metadata(
+                collection_id,
+                {"overview": str(overview).strip()},
+            )
+        return result
 
     def _paged_items(
         self,

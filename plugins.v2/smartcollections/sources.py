@@ -64,6 +64,20 @@ POPULAR_TMDB_LISTS = [
     {"title": "Letterboxd's Top 500 Films", "value": "finly_letterboxd_500", "list_id": "8648802", "media_type": "movie"},
     {"title": "Letterboxd's Top 250 Animated Films", "value": "finly_letterboxd_animation_250", "list_id": "8649225", "media_type": "movie"},
     {"title": "Criterion Collection", "value": "finly_criterion", "list_id": "8649108", "media_type": "movie"},
+    # Titles, descriptions and item counts for these public lists are refreshed
+    # from TMDB at runtime. The local labels are only offline fallbacks.
+    {"title": "TSPDT - 1000 Greatest Films", "value": "tmdb_8648821", "list_id": "8648821"},
+    {"title": "Letterboxd's Top 250 Films with the Most Fans", "value": "tmdb_8649224", "list_id": "8649224"},
+    {"title": "Letterboxd's Top 250 Documentary Films", "value": "tmdb_8649231", "list_id": "8649231"},
+    {"title": "S&S Directors - Greatest Films", "value": "tmdb_8649058", "list_id": "8649058"},
+    {"title": "S&S Critics - Greatest Films", "value": "tmdb_8649050", "list_id": "8649050"},
+    {"title": "独立精神奖最佳长片", "value": "tmdb_8648851", "list_id": "8648851"},
+    {"title": "金球奖最佳音乐/喜剧片", "value": "tmdb_8648850", "list_id": "8648850"},
+    {"title": "Roger Ebert's Great Movies", "value": "tmdb_8649219", "list_id": "8649219"},
+    {"title": "Every MUBI Film", "value": "tmdb_8649220", "list_id": "8649220"},
+    {"title": "Every NEON Film", "value": "tmdb_8649218", "list_id": "8649218"},
+    {"title": "Every A24 Film", "value": "tmdb_8649217", "list_id": "8649217"},
+    {"title": "AFI Top 100 (2007 Edition)", "value": "tmdb_8649041", "list_id": "8649041"},
 ]
 
 
@@ -115,6 +129,7 @@ class CollectionSpec:
     mode: Optional[str] = None
     media_type: Optional[str] = None
     use_source_title: bool = False
+    description: Optional[str] = None
 
 
 @dataclass
@@ -123,6 +138,7 @@ class ResolvedSource:
 
     title: Optional[str]
     items: List[MediaRef]
+    description: Optional[str] = None
     reported_total: Optional[int] = None
 
 
@@ -142,12 +158,12 @@ class SourceResolver:
         self,
         tmdb_token: str = "",
         language: str = "zh-CN",
-        max_items: int = 500,
+        max_items: int = 2000,
         use_proxy: bool = False,
     ):
         self._tmdb_token = (tmdb_token or "").strip()
         self._language = language or "zh-CN"
-        self._max_items = max(1, min(int(max_items or 500), 5000))
+        self._max_items = max(1, min(int(max_items or 2000), 5000))
         self._proxies = settings.PROXY if use_proxy else None
 
     @staticmethod
@@ -221,6 +237,7 @@ class SourceResolver:
                     media_type=str(item.get("media_type") or "").lower().strip()
                     or None,
                     use_source_title=bool(item.get("use_source_title")),
+                    description=str(item.get("description") or "").strip() or None,
                 )
             )
         return specs
@@ -310,6 +327,7 @@ class SourceResolver:
             params["api_key"] = settings.TMDB_API_KEY
 
         media_items: List[MediaRef] = []
+        reported_total: Optional[int] = None
         page = 1
         while len(media_items) < self._max_items:
             params["page"] = page
@@ -320,6 +338,8 @@ class SourceResolver:
                 code = response.status_code if response is not None else "无响应"
                 raise RuntimeError(f"热门 TMDB 片单请求失败：{code}")
             payload = response.json() or {}
+            if reported_total is None:
+                reported_total = self._safe_total(payload.get("total_results"))
             results = payload.get("results") or []
             media_items.extend(
                 self._tmdb_items(results, default_media_type=definition["media_type"])
@@ -330,7 +350,10 @@ class SourceResolver:
             page += 1
 
         return ResolvedSource(
-            title=definition["title"], items=media_items[: self._max_items]
+            title=definition["title"],
+            items=media_items[: self._max_items],
+            description=str(definition.get("description") or "").strip() or None,
+            reported_total=reported_total,
         )
 
     def _fetch_tmdb_list(self, value: str) -> ResolvedSource:
@@ -357,6 +380,8 @@ class SourceResolver:
             "User-Agent": settings.USER_AGENT,
         }
         title: Optional[str] = None
+        description: Optional[str] = None
+        reported_total: Optional[int] = None
         media_items: List[MediaRef] = []
         page = 1
 
@@ -369,6 +394,11 @@ class SourceResolver:
                 raise RuntimeError(f"TMDB v4 List 请求失败：{code}")
             payload = response.json() or {}
             title = title or payload.get("name")
+            description = description or payload.get("description")
+            if reported_total is None:
+                reported_total = self._safe_total(
+                    payload.get("total_results") or payload.get("total_items")
+                )
             results = payload.get("results") or []
             media_items.extend(self._tmdb_items(results))
             total_pages = int(payload.get("total_pages") or 1)
@@ -376,7 +406,12 @@ class SourceResolver:
                 break
             page += 1
 
-        return ResolvedSource(title=title, items=media_items[: self._max_items])
+        return ResolvedSource(
+            title=title,
+            items=media_items[: self._max_items],
+            description=str(description or "").strip() or None,
+            reported_total=reported_total,
+        )
 
     def _fetch_tmdb_v3(self, list_id: str) -> ResolvedSource:
         domain = settings.TMDB_API_DOMAIN or "api.themoviedb.org"
@@ -398,8 +433,21 @@ class SourceResolver:
         payload = response.json() or {}
         items = self._tmdb_items(payload.get("items") or [])
         return ResolvedSource(
-            title=payload.get("name"), items=items[: self._max_items]
+            title=payload.get("name"),
+            items=items[: self._max_items],
+            description=str(payload.get("description") or "").strip() or None,
+            reported_total=self._safe_total(
+                payload.get("item_count") or payload.get("total_results")
+            )
+            or len(items),
         )
+
+    @staticmethod
+    def _safe_total(value: Any) -> Optional[int]:
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _tmdb_items(
@@ -591,6 +639,55 @@ class SourceResolver:
             aliases=media_ref.aliases,
         )
 
+    def resolve_tmdb_by_id(
+        self,
+        media_ref: MediaRef,
+        media_type: str,
+        tmdb_id: int,
+    ) -> Optional[MediaRef]:
+        """Load canonical TMDB metadata for an Emby title match."""
+
+        if media_type not in {"movie", "tv"} or not tmdb_id:
+            return None
+        api_key = str(getattr(settings, "TMDB_API_KEY", "") or "").strip()
+        if not self._tmdb_token and not api_key:
+            return None
+        domain = getattr(settings, "TMDB_API_DOMAIN", None) or "api.themoviedb.org"
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": settings.USER_AGENT,
+        }
+        params: Dict[str, Any] = {"language": self._language}
+        if self._tmdb_token:
+            headers["Authorization"] = f"Bearer {self._tmdb_token}"
+        else:
+            params["api_key"] = api_key
+        try:
+            response = RequestUtils(
+                headers=headers, proxies=self._proxies, timeout=20
+            ).get_res(
+                f"https://{domain}/3/{media_type}/{int(tmdb_id)}",
+                params=params,
+            )
+            if not response or response.status_code != 200:
+                return None
+            payload = response.json() or {}
+        except Exception:
+            return None
+        return MediaRef(
+            media_type=media_type,
+            tmdb_id=int(tmdb_id),
+            douban_id=media_ref.douban_id,
+            title=payload.get("title") or payload.get("name") or media_ref.title,
+            year=self._extract_year(
+                payload.get("release_date") or payload.get("first_air_date")
+            )
+            or media_ref.year,
+            poster_url=self._tmdb_poster(payload.get("poster_path"))
+            or media_ref.poster_url,
+            aliases=media_ref.aliases,
+        )
+
     @classmethod
     def _score_tmdb_search_result(
         cls,
@@ -656,6 +753,7 @@ class SourceResolver:
         list_id = match.group(1)
         url = f"https://www.douban.com/doulist/{list_id}/"
         title: Optional[str] = None
+        description: Optional[str] = None
         reported_total: Optional[int] = None
         subject_items: List[MediaRef] = []
         seen = set()
@@ -690,6 +788,15 @@ class SourceResolver:
                 )
                 if title_match:
                     title = self._clean_html(title_match.group(1))
+                description_match = re.search(
+                    r'<div\s+class="doulist-about"[^>]*>([\s\S]*?)</div>',
+                    page_html,
+                    flags=re.I,
+                )
+                if description_match:
+                    description = re.sub(
+                        r"\s+", " ", self._clean_html(description_match.group(1))
+                    ).strip()
                 total_match = re.search(
                     r'<div\s+class="doulist-filter">[\s\S]*?全部\s*<span>\((\d+)\)</span>',
                     page_html,
@@ -728,6 +835,7 @@ class SourceResolver:
         return ResolvedSource(
             title=title,
             items=subject_items,
+            description=description,
             reported_total=reported_total,
         )
 
@@ -841,4 +949,9 @@ class SourceResolver:
                 )
             )
 
-        return ResolvedSource(title=spec.name, items=items)
+        return ResolvedSource(
+            title=spec.name,
+            items=items,
+            description=spec.description,
+            reported_total=len(items),
+        )

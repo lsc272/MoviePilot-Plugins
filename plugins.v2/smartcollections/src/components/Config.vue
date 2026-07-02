@@ -28,9 +28,12 @@ onMounted(async () => {
     sync_mode: 'sync',
     tmdb_token: '',
     language: 'zh-CN',
-    max_items: 500,
+    max_items: 2000,
+    managed_schedule_enabled: false,
+    managed_schedule_cron: '0 4 * * *',
     ...(clone(props.initialConfig) || {}),
   }
+  if (Number(config.value.max_items) === 500) config.value.max_items = 2000
   try {
     const response = await props.api.get(`plugin/${props.pluginId || 'SmartCollections'}/status`)
     const data = unwrapResponse(response) || {}
@@ -69,6 +72,8 @@ onMounted(async () => {
           <VCol cols="12" md="6"><VTextField v-model="config.tmdb_token" type="password" label="TMDB v4 Read Access Token" /></VCol>
           <VCol cols="6" md="3"><VTextField v-model="config.language" label="TMDB 语言" /></VCol>
           <VCol cols="6" md="3"><VTextField v-model.number="config.max_items" type="number" label="每个片单最多读取" /></VCol>
+          <VCol cols="12" md="4"><VSwitch v-model="config.managed_schedule_enabled" label="定时重同步已管理合集" color="primary" /></VCol>
+          <VCol cols="12" md="4"><VTextField v-model="config.managed_schedule_cron" label="已管理合集 Cron" /></VCol>
           <VCol cols="12"><VSwitch v-model="config.use_proxy" label="访问公开片单时使用 MoviePilot 代理" color="primary" /></VCol>
         </VRow>
       </VCardText>
