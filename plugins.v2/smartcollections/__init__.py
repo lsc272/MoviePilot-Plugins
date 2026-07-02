@@ -4,9 +4,9 @@ import json
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -39,7 +39,7 @@ from .sources import (
 class SmartCollections(_PluginBase):
     _LEGACY_OSCAR_TITLE = "历届奥斯卡最佳动画长片及提名"
     _OSCAR_BEST_PICTURE_TITLE = "奥斯卡历届最佳影片"
-    _POSTER_VERSION = 3
+    _POSTER_VERSION = 4
     _LEGACY_CATALOG_TITLES = {
         ("tmdb_builtin", "finly_golden_globes", "历届金球奖电影精选"): "金球奖最佳剧情片",
         ("tmdb_builtin", "finly_bafta", "历届英国电影学院奖精选"): "英国电影学院奖最佳影片",
@@ -67,7 +67,7 @@ class SmartCollections(_PluginBase):
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.3.5"
+    plugin_version = "0.4.0"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -82,7 +82,7 @@ class SmartCollections(_PluginBase):
     _sync_mode = "sync"
     _tmdb_token = ""
     _language = "zh-CN"
-    _max_items = 500
+    _max_items = 2000
     _use_proxy = False
     _show_sidebar_nav = True
     _auto_poster = True
@@ -90,6 +90,8 @@ class SmartCollections(_PluginBase):
     _popular_douban: List[str] = []
     _manual_urls = ""
     _sources = "[]"
+    _managed_schedule_enabled = False
+    _managed_schedule_cron = "0 4 * * *"
     _scheduler: Optional[BackgroundScheduler] = None
     _run_lock = threading.Lock()
 
@@ -99,6 +101,17 @@ class SmartCollections(_PluginBase):
         self._run_lock = threading.Lock()
         self._preview_lock = threading.RLock()
         self._preview_cache: Dict[str, Dict[str, Any]] = {}
+        self._preview_task_lock = threading.Lock()
+        self._preview_task_status_lock = threading.RLock()
+        self._preview_task_status: Dict[str, Any] = {
+            "task_id": None,
+            "running": False,
+            "progress": 0,
+            "message": "",
+            "result": None,
+            "error": None,
+        }
+        self._catalog_metadata_lock = threading.Lock()
         self._douban_chain_cooldown_until = 0.0
         self._collection_tools_lock = threading.Lock()
         self._collection_tools_status_lock = threading.RLock()
@@ -135,7 +148,14 @@ class SmartCollections(_PluginBase):
         self._sync_mode = str(config.get("sync_mode") or "sync").lower()
         self._tmdb_token = str(config.get("tmdb_token") or "").strip()
         self._language = str(config.get("language") or "zh-CN").strip()
-        self._max_items = self._safe_int(config.get("max_items"), 500, 1, 5000)
+        configured_max = config.get("max_items")
+        migrate_max_items = configured_max is None or str(configured_max).strip() in {
+            "",
+            "500",
+        }
+        if migrate_max_items:
+            configured_max = 2000
+        self._max_items = self._safe_int(configured_max, 2000, 1, 5000)
         self._use_proxy = bool(config.get("use_proxy"))
         self._show_sidebar_nav = bool(config.get("show_sidebar_nav", True))
         self._auto_poster = bool(config.get("auto_poster", True))
@@ -143,19 +163,45 @@ class SmartCollections(_PluginBase):
         self._popular_douban = list(config.get("popular_douban") or [])
         self._manual_urls = str(config.get("manual_urls") or "").strip()
         self._sources = config.get("sources") or "[]"
+        self._managed_schedule_enabled = bool(
+            config.get("managed_schedule_enabled", False)
+        )
+        self._managed_schedule_cron = str(
+            config.get("managed_schedule_cron") or "0 4 * * *"
+        ).strip()
 
-        if self._onlyonce:
+        if self._onlyonce or self._managed_schedule_enabled:
             self._scheduler = BackgroundScheduler(timezone=settings.TZ)
-            self._scheduler.add_job(
-                func=self.sync_all,
-                trigger="date",
-                run_date=datetime.datetime.now(tz=ZoneInfo(settings.TZ))
-                + datetime.timedelta(seconds=3),
-                name="智能合集立即同步",
-            )
-            self._onlyonce = False
+            if self._onlyonce:
+                self._scheduler.add_job(
+                    func=self.sync_all,
+                    trigger="date",
+                    run_date=datetime.datetime.now(tz=ZoneInfo(settings.TZ))
+                    + datetime.timedelta(seconds=3),
+                    name="智能合集立即同步",
+                )
+                self._onlyonce = False
+                self._save_config()
+            if self._managed_schedule_enabled:
+                try:
+                    managed_trigger = CronTrigger.from_crontab(
+                        self._managed_schedule_cron
+                    )
+                    self._scheduler.add_job(
+                        func=self.resync_managed_all,
+                        trigger=managed_trigger,
+                        id="smartcollections-managed-resync",
+                        replace_existing=True,
+                        name="智能合集定时批量重新同步",
+                    )
+                except ValueError as exc:
+                    logger.error(f"智能合集定时批量重新同步 Cron 无效：{exc}")
+                    self._managed_schedule_enabled = False
+                    self._save_config()
+            if self._scheduler.get_jobs():
+                self._scheduler.start()
+        if migrate_max_items:
             self._save_config()
-            self._scheduler.start()
 
     def get_state(self) -> bool:
         return self._enabled
@@ -216,11 +262,25 @@ class SmartCollections(_PluginBase):
                 "summary": "获取智能合集页面数据",
             },
             {
+                "path": "/catalog",
+                "endpoint": self.api_catalog,
+                "methods": ["GET"],
+                "auth": "bear",
+                "summary": "获取动态片单目录元数据",
+            },
+            {
                 "path": "/preview",
                 "endpoint": self.api_preview,
                 "methods": ["POST"],
                 "auth": "bear",
-                "summary": "预览片单匹配结果",
+                "summary": "启动后台片单匹配预览",
+            },
+            {
+                "path": "/preview/status",
+                "endpoint": self.api_preview_status,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "查询片单匹配预览进度",
             },
             {
                 "path": "/preview/sync",
@@ -263,6 +323,20 @@ class SmartCollections(_PluginBase):
                 "methods": ["POST"],
                 "auth": "bear",
                 "summary": "重新同步已管理合集",
+            },
+            {
+                "path": "/collections/resync/all",
+                "endpoint": self.api_collections_resync_all,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "后台批量重新同步全部已管理合集",
+            },
+            {
+                "path": "/collections/schedule",
+                "endpoint": self.api_managed_schedule,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "保存已管理合集的定时批量同步设置",
             },
             {
                 "path": "/collections/delete",
@@ -613,11 +687,13 @@ class SmartCollections(_PluginBase):
             "sync_mode": "sync",
             "tmdb_token": "",
             "language": "zh-CN",
-            "max_items": 500,
+            "max_items": 2000,
             "popular_tmdb": [],
             "popular_douban": [],
             "manual_urls": "",
             "sources": "[]",
+            "managed_schedule_enabled": False,
+            "managed_schedule_cron": "0 4 * * *",
         }
 
     def get_page(self) -> List[dict]:
@@ -680,7 +756,21 @@ class SmartCollections(_PluginBase):
     def api_history(self) -> Dict[str, Any]:
         return {"success": True, "data": self.get_data("history") or []}
 
+    def api_catalog(self) -> Dict[str, Any]:
+        catalog = self._source_catalog()
+        refreshing = self._catalog_metadata_lock.locked()
+        if not refreshing:
+            catalog = self._source_catalog()
+        return {
+            "success": True,
+            "data": {
+                "catalog": catalog,
+                "refreshing": refreshing,
+            },
+        }
+
     def api_status(self) -> Dict[str, Any]:
+        catalog = self._source_catalog()
         collections = []
         for item in self._load_managed_collections():
             record = dict(item)
@@ -698,19 +788,26 @@ class SmartCollections(_PluginBase):
                 except Exception:
                     record["source_url"] = None
             collections.append(record)
+        collection_tools = self._collection_tools_snapshot(refresh_inventory=True)
+        if not self._catalog_metadata_lock.locked():
+            catalog = self._source_catalog()
         return {
             "success": True,
             "data": {
-                "catalog": self._source_catalog(),
+                "catalog": catalog,
+                "catalog_refreshing": self._catalog_metadata_lock.locked(),
                 "templates": self._load_templates(),
                 "collections": collections,
-                "collection_tools": self._collection_tools_snapshot(
-                    refresh_inventory=True
-                ),
+                "collection_tools": collection_tools,
+                "preview_task": self._preview_task_snapshot(include_result=False),
                 "subscription_batch": self.api_subscribe_missing_status()["data"],
                 "history": self.get_data("history") or [],
                 "running": self._run_lock.locked(),
                 "server": self._emby_server,
+                "managed_schedule": {
+                    "enabled": self._managed_schedule_enabled,
+                    "cron": self._managed_schedule_cron,
+                },
                 "emby_servers": [
                     conf.name
                     for conf in MediaServerHelper().get_configs().values()
@@ -720,13 +817,117 @@ class SmartCollections(_PluginBase):
         }
 
     def api_preview(self, payload: dict = Body(...)) -> Dict[str, Any]:
+        if not self._preview_task_lock.acquire(blocking=False):
+            snapshot = self._preview_task_snapshot()
+            return {
+                "success": False,
+                "message": snapshot.get("message") or "已有预览匹配任务正在运行",
+            }
         try:
             spec = self._spec_from_payload(payload or {})
-            preview = self._build_preview(spec)
-            return {"success": True, "data": preview}
+            task_id = uuid.uuid4().hex
+            self._set_preview_task_status(
+                task_id=task_id,
+                running=True,
+                progress=1,
+                message="正在准备片单预览…",
+                result=None,
+                error=None,
+            )
+            threading.Thread(
+                target=self._run_preview_task,
+                args=(task_id, spec),
+                name="SmartCollectionsPreview",
+                daemon=True,
+            ).start()
+            return {
+                "success": True,
+                "data": {"task_id": task_id},
+                "message": "预览匹配已在后台启动",
+            }
+        except Exception as exc:
+            self._preview_task_lock.release()
+            return {"success": False, "message": str(exc)}
+
+    def api_preview_status(self, payload: dict = Body(...)) -> Dict[str, Any]:
+        task_id = str((payload or {}).get("task_id") or "")
+        snapshot = self._preview_task_snapshot()
+        if task_id and snapshot.get("task_id") != task_id:
+            return {"success": False, "message": "预览任务不存在或已经过期"}
+        return {"success": True, "data": snapshot}
+
+    def _run_preview_task(self, task_id: str, spec: CollectionSpec) -> None:
+        try:
+            preview = self._build_preview(
+                spec,
+                progress=lambda progress, message: self._set_preview_task_status(
+                    task_id=task_id,
+                    running=True,
+                    progress=progress,
+                    message=message,
+                ),
+            )
+            self._set_preview_task_status(
+                task_id=task_id,
+                running=False,
+                progress=100,
+                message=(
+                    f"预览完成：匹配 {preview.get('matched_count', 0)} / "
+                    f"{preview.get('total_count', 0)}"
+                ),
+                result=preview,
+                error=None,
+            )
+            try:
+                self.post_message(
+                    mtype=NotificationType.Plugin,
+                    title="智能合集预览匹配完成",
+                    text=(
+                        f"{preview.get('title') or '未命名片单'}：共 "
+                        f"{preview.get('total_count', 0)} 项，已匹配 "
+                        f"{preview.get('matched_count', 0)} 项，缺失 "
+                        f"{preview.get('missing_count', 0)} 项。"
+                    ),
+                )
+            except Exception as notify_error:
+                logger.warning(f"智能合集预览完成通知发送失败：{notify_error}")
         except Exception as exc:
             logger.exception(f"智能合集预览失败：{exc}")
-            return {"success": False, "message": str(exc)}
+            self._set_preview_task_status(
+                task_id=task_id,
+                running=False,
+                message="预览匹配失败",
+                error=str(exc),
+            )
+            try:
+                self.post_message(
+                    mtype=NotificationType.Plugin,
+                    title="智能合集预览匹配失败",
+                    text=str(exc),
+                )
+            except Exception as notify_error:
+                logger.warning(f"智能合集预览失败通知发送失败：{notify_error}")
+        finally:
+            self._preview_task_lock.release()
+
+    def _preview_task_snapshot(self, include_result: bool = True) -> Dict[str, Any]:
+        with self._preview_task_status_lock:
+            snapshot = dict(self._preview_task_status)
+        if not include_result:
+            snapshot.pop("result", None)
+        return snapshot
+
+    def _set_preview_task_status(self, **values: Any) -> None:
+        with self._preview_task_status_lock:
+            current_task = values.get("task_id")
+            if (
+                current_task
+                and self._preview_task_status.get("task_id")
+                and self._preview_task_status.get("task_id") != current_task
+                and self._preview_task_status.get("running")
+            ):
+                return
+            self._preview_task_status.update(values)
 
     def api_sync_preview(self, payload: dict = Body(...)) -> Dict[str, Any]:
         if not self._run_lock.acquire(blocking=False):
@@ -896,6 +1097,125 @@ class SmartCollections(_PluginBase):
             return {"success": False, "message": str(exc)}
         finally:
             self._run_lock.release()
+
+    def api_collections_resync_all(self) -> Dict[str, Any]:
+        if self._run_lock.locked():
+            return {"success": False, "message": "已有同步或批量任务正在运行"}
+        if not self._load_managed_collections():
+            return {"success": False, "message": "还没有已管理的智能合集"}
+        threading.Thread(
+            target=self.resync_managed_all,
+            name="SmartCollectionsManagedResync",
+            daemon=True,
+        ).start()
+        return {"success": True, "message": "批量重新同步已在后台启动"}
+
+    def api_managed_schedule(self, payload: dict = Body(...)) -> Dict[str, Any]:
+        enabled = bool((payload or {}).get("enabled"))
+        cron = str((payload or {}).get("cron") or "0 4 * * *").strip()
+        if enabled:
+            try:
+                CronTrigger.from_crontab(cron)
+            except ValueError as exc:
+                return {"success": False, "message": f"Cron 表达式无效：{exc}"}
+        self._managed_schedule_enabled = enabled
+        self._managed_schedule_cron = cron
+        self._save_config()
+        self._configure_managed_scheduler()
+        return {
+            "success": True,
+            "data": {"enabled": enabled, "cron": cron},
+            "message": "定时批量重新同步设置已保存",
+        }
+
+    def _configure_managed_scheduler(self) -> None:
+        if self._scheduler:
+            try:
+                self._scheduler.remove_job("smartcollections-managed-resync")
+            except Exception:
+                pass
+        if self._managed_schedule_enabled:
+            if not self._scheduler:
+                self._scheduler = BackgroundScheduler(timezone=settings.TZ)
+            self._scheduler.add_job(
+                func=self.resync_managed_all,
+                trigger=CronTrigger.from_crontab(self._managed_schedule_cron),
+                id="smartcollections-managed-resync",
+                replace_existing=True,
+                name="智能合集定时批量重新同步",
+            )
+            if not self._scheduler.running:
+                self._scheduler.start()
+        elif self._scheduler and not self._scheduler.get_jobs():
+            if self._scheduler.running:
+                self._scheduler.shutdown(wait=False)
+            self._scheduler = None
+
+    def resync_managed_all(self) -> None:
+        if not self._run_lock.acquire(blocking=False):
+            logger.warning("智能合集批量重新同步任务已在运行，本次触发已跳过")
+            if self._managed_schedule_enabled and self._scheduler:
+                self._scheduler.add_job(
+                    func=self.resync_managed_all,
+                    trigger="date",
+                    run_date=datetime.datetime.now(tz=ZoneInfo(settings.TZ))
+                    + datetime.timedelta(minutes=5),
+                    id="smartcollections-managed-resync-retry",
+                    replace_existing=True,
+                    name="智能合集批量重新同步重试",
+                )
+            return
+        started = time.monotonic()
+        run_record: Dict[str, Any] = {
+            "time": self._now(),
+            "server": self._emby_server,
+            "success": False,
+            "collections": [],
+        }
+        try:
+            records = self._load_managed_collections()
+            if not records:
+                raise ValueError("还没有已管理的智能合集")
+            context = self._preview_context()
+            for record in records:
+                try:
+                    spec = self._spec_from_payload(record.get("source_spec") or {})
+                    preview = self._build_preview(spec, context=context)
+                    source_spec = record.get("source_spec") or {}
+                    name = self._migrate_catalog_title(
+                        str(source_spec.get("source_type") or ""),
+                        str(source_spec.get("list_id") or ""),
+                        str(record.get("name") or preview.get("title") or ""),
+                    )
+                    run_record["collections"].append(
+                        self._sync_preview_data(
+                            preview=preview,
+                            name=name,
+                            mode=record.get("mode") or self._sync_mode,
+                            record_id=str(record.get("id") or ""),
+                            append_history=False,
+                        )
+                    )
+                except Exception as exc:
+                    run_record["collections"].append(
+                        {
+                            "success": False,
+                            "name": record.get("name") or "未命名合集",
+                            "error": str(exc),
+                        }
+                    )
+            run_record["success"] = all(
+                item.get("success") for item in run_record["collections"]
+            )
+        except Exception as exc:
+            logger.exception(f"智能合集批量重新同步失败：{exc}")
+            run_record["error"] = str(exc)
+        finally:
+            run_record["duration"] = round(time.monotonic() - started, 2)
+            self._append_history(run_record)
+            self._run_lock.release()
+        if self._notify:
+            self._notify_result(run_record)
 
     def api_collection_delete(self, payload: dict = Body(...)) -> Dict[str, Any]:
         collection_id = str((payload or {}).get("collection_id") or "")
@@ -1327,16 +1647,22 @@ class SmartCollections(_PluginBase):
         )
 
     def _source_catalog(self) -> Dict[str, List[dict]]:
+        metadata = self._catalog_metadata()
         return {
             "tmdb": [
                 {
                     "id": f"tmdb:{item['value']}",
                     "source_type": "tmdb_builtin",
                     "list_id": item["value"],
-                    "name": item["title"],
-                    "title": item["title"],
+                    "name": metadata.get(f"tmdb:{item['value']}", {}).get("title")
+                    or item["title"],
+                    "title": metadata.get(f"tmdb:{item['value']}", {}).get("title")
+                    or item["title"],
                     "url": item.get("url"),
                     "media_type": item.get("media_type"),
+                    "description": metadata.get(f"tmdb:{item['value']}", {}).get("description")
+                    or "",
+                    "item_count": metadata.get(f"tmdb:{item['value']}", {}).get("item_count"),
                     "use_source_title": True,
                 }
                 for item in POPULAR_TMDB_LISTS
@@ -1346,15 +1672,109 @@ class SmartCollections(_PluginBase):
                     "id": f"douban:{item['value']}",
                     "source_type": "douban",
                     "list_id": item["value"],
-                    "name": item["title"],
-                    "title": item["title"],
+                    "name": metadata.get(f"douban:{item['value']}", {}).get("title")
+                    or item["title"],
+                    "title": metadata.get(f"douban:{item['value']}", {}).get("title")
+                    or item["title"],
                     "url": f"https://www.douban.com/doulist/{item['value']}/",
                     "media_type": item.get("media_type") or "movie",
+                    "description": metadata.get(f"douban:{item['value']}", {}).get("description")
+                    or "",
+                    "item_count": metadata.get(f"douban:{item['value']}", {}).get("item_count"),
                     "use_source_title": True,
                 }
                 for item in POPULAR_DOUBAN_LISTS
             ],
         }
+
+    def _catalog_metadata(self) -> Dict[str, Dict[str, Any]]:
+        cached = self.get_data("catalog_metadata") or {}
+        cached_items = cached.get("items") if isinstance(cached, dict) else {}
+        cached_items = cached_items if isinstance(cached_items, dict) else {}
+        try:
+            age = time.time() - float(cached.get("updated_at") or 0)
+        except (TypeError, ValueError):
+            age = 10**9
+        if age < 6 * 3600:
+            return cached_items
+
+        if not self._catalog_metadata_lock.acquire(blocking=False):
+            return cached_items
+        threading.Thread(
+            target=self._refresh_catalog_metadata,
+            args=(dict(cached_items),),
+            name="SmartCollectionsCatalogMetadata",
+            daemon=True,
+        ).start()
+        return cached_items
+
+    def _refresh_catalog_metadata(
+        self, cached_items: Dict[str, Dict[str, Any]]
+    ) -> None:
+        try:
+            resolver = SourceResolver(
+                tmdb_token=self._tmdb_token,
+                language=self._language,
+                max_items=1,
+                use_proxy=self._use_proxy,
+            )
+            definitions: List[Tuple[str, CollectionSpec]] = []
+            for item in POPULAR_TMDB_LISTS:
+                definitions.append(
+                    (
+                        f"tmdb:{item['value']}",
+                        CollectionSpec(
+                            source_type="tmdb_builtin",
+                            list_id=str(item["value"]),
+                            media_type=item.get("media_type"),
+                        ),
+                    )
+                )
+            for item in POPULAR_DOUBAN_LISTS:
+                definitions.append(
+                    (
+                        f"douban:{item['value']}",
+                        CollectionSpec(
+                            source_type="douban",
+                            list_id=str(item["value"]),
+                            media_type=item.get("media_type"),
+                        ),
+                    )
+                )
+
+            refreshed = dict(cached_items)
+
+            def load(definition: Tuple[str, CollectionSpec]):
+                key, spec = definition
+                resolved = resolver.fetch(spec)
+                return key, {
+                    "title": resolved.title,
+                    "description": resolved.description or "",
+                    "item_count": resolved.reported_total
+                    if resolved.reported_total is not None
+                    else len(resolved.items),
+                }
+
+            with ThreadPoolExecutor(
+                max_workers=min(8, len(definitions)),
+                thread_name_prefix="SmartCollectionsCatalog",
+            ) as executor:
+                futures = [executor.submit(load, definition) for definition in definitions]
+                for future in as_completed(futures):
+                    try:
+                        key, value = future.result()
+                        refreshed[key] = value
+                    except Exception as exc:
+                        logger.debug(f"智能合集片单目录元数据刷新失败：{exc}")
+
+            self.save_data(
+                "catalog_metadata",
+                {"updated_at": time.time(), "items": refreshed},
+            )
+        except Exception as exc:
+            logger.warning(f"智能合集片单目录元数据刷新失败：{exc}")
+        finally:
+            self._catalog_metadata_lock.release()
 
     def _load_templates(self) -> List[dict]:
         templates = self.get_data("templates") or []
@@ -1384,6 +1804,7 @@ class SmartCollections(_PluginBase):
                 name=str(payload.get("name") or template.get("name") or "").strip(),
                 items=template.get("items") or [],
                 mode=str(payload.get("mode") or "").strip() or None,
+                description=str(template.get("description") or "").strip() or None,
             )
 
         source_type = str(
@@ -1396,6 +1817,7 @@ class SmartCollections(_PluginBase):
             spec = SourceResolver.spec_from_url(url)
             spec.name = name
             spec.mode = mode
+            spec.description = str(payload.get("description") or "").strip() or None
             return spec
         if source_type not in {"tmdb", "tmdb_builtin", "douban", "template"}:
             raise ValueError("不支持的片单来源")
@@ -1433,6 +1855,7 @@ class SmartCollections(_PluginBase):
             mode=mode,
             media_type=media_type,
             use_source_title=bool(payload.get("use_source_title")),
+            description=str(payload.get("description") or "").strip() or None,
         )
         if source_type == "template" and not items:
             raise ValueError("模板没有影视条目")
@@ -1504,9 +1927,15 @@ class SmartCollections(_PluginBase):
         }
 
     def _build_preview(
-        self, spec: CollectionSpec, context: Optional[Dict[str, Any]] = None
+        self,
+        spec: CollectionSpec,
+        context: Optional[Dict[str, Any]] = None,
+        progress: Optional[Callable[[int, str], None]] = None,
     ) -> Dict[str, Any]:
+        report = progress or (lambda _progress, _message: None)
+        report(4, "正在读取 Emby 媒体库索引…")
         context = context or self._preview_context()
+        report(12, "正在获取片单内容和简介…")
         resolved = context["resolver"].fetch(spec)
         title = (
             resolved.title
@@ -1518,15 +1947,35 @@ class SmartCollections(_PluginBase):
             title_index=context["title_index"],
             douban_cache=context["douban_cache"],
             resolver=context["resolver"],
+            progress=lambda completed, total: report(
+                15 + round(50 * completed / max(1, total)),
+                f"正在识别豆列条目 {completed} / {total}…",
+            ),
         )
         rows: List[dict] = []
+        total_items = len(resolved.items)
         for position, source_item in enumerate(resolved.items, start=1):
+            resolution_key = str(source_item.douban_id or "")
+            converted = batch_resolutions.get(resolution_key)
             match = self._find_title_match(source_item, context["title_index"])
             match_method = "title" if match else None
             if match:
                 effective = self._media_ref_from_emby_match(source_item, match)
+                if (
+                    converted
+                    and converted.tmdb_id == effective.tmdb_id
+                    and converted.media_type == effective.media_type
+                ):
+                    effective = MediaRef(
+                        media_type=effective.media_type,
+                        tmdb_id=effective.tmdb_id,
+                        douban_id=effective.douban_id,
+                        title=source_item.title or converted.title,
+                        year=source_item.year or converted.year,
+                        poster_url=converted.poster_url or source_item.poster_url,
+                        aliases=source_item.aliases,
+                    )
             else:
-                resolution_key = str(source_item.douban_id or "")
                 if resolution_key in batch_resolutions:
                     converted = batch_resolutions[resolution_key]
                 else:
@@ -1575,12 +2024,17 @@ class SmartCollections(_PluginBase):
                     else "Emby 媒体库中未找到匹配项目",
                 }
             )
+            if position == total_items or position % max(1, total_items // 100) == 0:
+                report(
+                    66 + round(30 * position / max(1, total_items)),
+                    f"正在匹配 Emby {position} / {total_items}…",
+                )
 
         self.save_data("douban_tmdb_cache", context["douban_cache"])
         matched = sum(bool(row.get("matched")) for row in rows)
-        unavailable_count = max(
-            0, int(resolved.reported_total or len(rows)) - len(rows)
-        )
+        source_gap = max(0, int(resolved.reported_total or len(rows)) - len(rows))
+        unavailable_count = source_gap if spec.source_type == "douban" else 0
+        truncated_count = source_gap if spec.source_type != "douban" else 0
         if unavailable_count:
             logger.warning(
                 f"智能合集来源标称 {resolved.reported_total} 个条目，"
@@ -1589,13 +2043,14 @@ class SmartCollections(_PluginBase):
         preview = {
             "preview_id": uuid.uuid4().hex,
             "title": title,
-            "description": "",
+            "description": resolved.description or spec.description or "",
             "source": spec.source_type,
             "source_url": SourceResolver.source_url(spec),
             "spec": asdict(spec),
             "total_count": len(rows),
             "source_reported_total": resolved.reported_total,
             "unavailable_count": unavailable_count,
+            "truncated_count": truncated_count,
             "movie_count": sum(row.get("media_type") == "movie" for row in rows),
             "tv_count": sum(row.get("media_type") == "tv" for row in rows),
             "matched_count": matched,
@@ -1609,6 +2064,7 @@ class SmartCollections(_PluginBase):
             "_created_monotonic": time.monotonic(),
         }
         self._store_preview(preview)
+        report(99, "正在整理预览结果…")
         return preview
 
     @staticmethod
@@ -1635,33 +2091,59 @@ class SmartCollections(_PluginBase):
         title_index: Dict[Tuple[str, Optional[int]], List[Dict[str, Any]]],
         douban_cache: Dict[str, dict],
         resolver: SourceResolver,
+        progress: Optional[Callable[[int, int], None]] = None,
     ) -> Dict[str, Optional[MediaRef]]:
         """Resolve large mixed doulists concurrently without hammering Douban."""
 
         if len(items) < 100:
             return {}
-        pending = [
-            item
-            for item in items
-            if item.douban_id and not self._find_title_match(item, title_index)
-        ]
+        pending = [item for item in items if item.douban_id]
         if not pending:
             return {}
 
         def resolve(item: MediaRef) -> Tuple[str, Optional[MediaRef]]:
-            return str(item.douban_id), self._resolve_media_ref(
-                item,
-                douban_cache,
-                resolver,
-                skip_douban_chain=True,
+            key = str(item.douban_id)
+            match = self._find_title_match(item, title_index)
+            if match and match.get("tmdb_id") and match.get("media_type") in {"movie", "tv"}:
+                cached = douban_cache.get(key) or {}
+                if (
+                    str(cached.get("tmdb_id") or "") == str(match.get("tmdb_id"))
+                    and cached.get("type") == match.get("media_type")
+                ):
+                    return key, self._resolve_media_ref(
+                        item, douban_cache, resolver, skip_douban_chain=True
+                    )
+                resolved = resolver.resolve_tmdb_by_id(
+                    item,
+                    str(match["media_type"]),
+                    int(match["tmdb_id"]),
+                )
+                if resolved:
+                    douban_cache[key] = {
+                        "type": resolved.media_type,
+                        "tmdb_id": resolved.tmdb_id,
+                        "title": resolved.title,
+                        "year": resolved.year,
+                        "poster_url": resolved.poster_url,
+                    }
+                return key, resolved
+            return key, self._resolve_media_ref(
+                item, douban_cache, resolver, skip_douban_chain=True
             )
 
         workers = min(6, len(pending))
+        results: Dict[str, Optional[MediaRef]] = {}
         with ThreadPoolExecutor(
             max_workers=workers,
             thread_name_prefix="SmartCollectionsTmdbFallback",
         ) as executor:
-            return dict(executor.map(resolve, pending))
+            futures = [executor.submit(resolve, item) for item in pending]
+            for completed, future in enumerate(as_completed(futures), start=1):
+                key, value = future.result()
+                results[key] = value
+                if progress:
+                    progress(completed, len(futures))
+        return results
 
     @staticmethod
     def _find_title_match(
@@ -1731,6 +2213,7 @@ class SmartCollections(_PluginBase):
         mode: str,
         selected_keys: Optional[List[str]] = None,
         record_id: Optional[str] = None,
+        append_history: bool = True,
     ) -> Dict[str, Any]:
         if not name:
             raise ValueError("合集名称不能为空")
@@ -1747,6 +2230,7 @@ class SmartCollections(_PluginBase):
             name=name,
             item_ids=item_ids,
             mode=mode if mode in {"sync", "append"} else self._sync_mode,
+            overview=preview.get("description") or None,
         )
         result = {
             "success": True,
@@ -1759,6 +2243,7 @@ class SmartCollections(_PluginBase):
             "created": sync_result.created,
             "added": sync_result.added,
             "removed": sync_result.removed,
+            "description": preview.get("description") or "",
         }
         managed = self._upsert_managed_collection(
             preview=preview,
@@ -1778,15 +2263,16 @@ class SmartCollections(_PluginBase):
             except Exception as exc:
                 result["poster_error"] = str(exc)
                 logger.warning(f"智能合集 {name} 自动生成海报失败：{exc}")
-        self._append_history(
-            {
-                "time": self._now(),
-                "server": self._emby_server,
-                "success": True,
-                "duration": 0,
-                "collections": [result],
-            }
-        )
+        if append_history:
+            self._append_history(
+                {
+                    "time": self._now(),
+                    "server": self._emby_server,
+                    "success": True,
+                    "duration": 0,
+                    "collections": [result],
+                }
+            )
         return result
 
     def _upsert_managed_collection(
@@ -1826,6 +2312,7 @@ class SmartCollections(_PluginBase):
             "total_count": result.get("source_items", 0),
             "matched_count": result.get("matched", 0),
             "missing_count": result.get("missing", 0),
+            "description": preview.get("description") or "",
             "created_at": current.get("created_at") if current else now,
             "last_sync_at": now,
             "poster_source": current.get("poster_source") if current else None,
@@ -2071,13 +2558,29 @@ class SmartCollections(_PluginBase):
             )
             normalized: List[MediaRef] = []
             for source_item in resolved.items:
+                resolution_key = str(source_item.douban_id or "")
+                converted = batch_resolutions.get(resolution_key)
                 title_match = self._find_title_match(source_item, title_index)
                 if title_match:
-                    normalized.append(
-                        self._media_ref_from_emby_match(source_item, title_match)
+                    matched_ref = self._media_ref_from_emby_match(
+                        source_item, title_match
                     )
+                    if (
+                        converted
+                        and converted.tmdb_id == matched_ref.tmdb_id
+                        and converted.media_type == matched_ref.media_type
+                    ):
+                        matched_ref = MediaRef(
+                            media_type=matched_ref.media_type,
+                            tmdb_id=matched_ref.tmdb_id,
+                            douban_id=matched_ref.douban_id,
+                            title=source_item.title or converted.title,
+                            year=source_item.year or converted.year,
+                            poster_url=converted.poster_url or source_item.poster_url,
+                            aliases=source_item.aliases,
+                        )
+                    normalized.append(matched_ref)
                     continue
-                resolution_key = str(source_item.douban_id or "")
                 if resolution_key in batch_resolutions:
                     media_ref = batch_resolutions[resolution_key]
                 else:
@@ -2112,6 +2615,7 @@ class SmartCollections(_PluginBase):
                 name=collection_name,
                 item_ids=matched_ids,
                 mode=spec.mode or self._sync_mode,
+                overview=resolved.description or spec.description or None,
             )
             item_result.update(
                 {
@@ -2126,6 +2630,7 @@ class SmartCollections(_PluginBase):
                 "source": spec.source_type,
                 "spec": asdict(spec),
                 "title": collection_name,
+                "description": resolved.description or spec.description or "",
                 "items": [asdict(item) for item in normalized],
             }
             managed = self._upsert_managed_collection(
@@ -2307,6 +2812,8 @@ class SmartCollections(_PluginBase):
                 "popular_douban": self._popular_douban,
                 "manual_urls": self._manual_urls,
                 "sources": self._sources,
+                "managed_schedule_enabled": self._managed_schedule_enabled,
+                "managed_schedule_cron": self._managed_schedule_cron,
             }
         )
 

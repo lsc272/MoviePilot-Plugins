@@ -2,14 +2,14 @@ const currentImports = {};
       const exportSet = new Set(['Module', '__esModule', 'default', '_export_sfc']);
       let moduleMap = {
 "./Page":()=>{
-      dynamicLoadingCss(["__federation_expose_Page-uXFeSMTc.css","SmartCollectionsApp-CRWSlQZC.css"], false, './Page');
-      return __federation_import('./__federation_expose_Page-B2e5VTPJ.js').then(module =>Object.keys(module).every(item => exportSet.has(item)) ? () => module.default : () => module)},
+      dynamicLoadingCss(["__federation_expose_Page-uXFeSMTc.css","SmartCollectionsApp-BWVjDUlF.css"], false, './Page');
+      return __federation_import('./__federation_expose_Page-CbIPWBqT.js').then(module =>Object.keys(module).every(item => exportSet.has(item)) ? () => module.default : () => module)},
 "./Config":()=>{
       dynamicLoadingCss([], false, './Config');
-      return __federation_import('./__federation_expose_Config-iKuZ5FIO.js').then(module =>Object.keys(module).every(item => exportSet.has(item)) ? () => module.default : () => module)},
+      return __federation_import('./__federation_expose_Config-C6Ktd9ZZ.js').then(module =>Object.keys(module).every(item => exportSet.has(item)) ? () => module.default : () => module)},
 "./AppPage":()=>{
-      dynamicLoadingCss(["SmartCollectionsApp-CRWSlQZC.css"], false, './AppPage');
-      return __federation_import('./__federation_expose_AppPage-DR9hYjIC.js').then(module =>Object.keys(module).every(item => exportSet.has(item)) ? () => module.default : () => module)},};
+      dynamicLoadingCss(["SmartCollectionsApp-BWVjDUlF.css"], false, './AppPage');
+      return __federation_import('./__federation_expose_AppPage-CzTQVvXQ.js').then(module =>Object.keys(module).every(item => exportSet.has(item)) ? () => module.default : () => module)},};
       const seen = {};
       const dynamicLoadingCss = (cssFilePaths, dontAppendStylesToHead, exposeItemName) => {
         const metaUrl = import.meta.url;
@@ -47,9 +47,9 @@ const currentImports = {};
            }
          } else {
            href = cssPath;
-        }
+         }
 
-         if (dontAppendStylesToHead) {
+          if (dontAppendStylesToHead) {
             const key = 'css__SmartCollections__' + exposeItemName;
             window[key] = window[key] || [];
             window[key].push(href);

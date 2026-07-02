@@ -42,9 +42,12 @@ onMounted(async () => {
     sync_mode: 'sync',
     tmdb_token: '',
     language: 'zh-CN',
-    max_items: 500,
+    max_items: 2000,
+    managed_schedule_enabled: false,
+    managed_schedule_cron: '0 4 * * *',
     ...(clone(props.initialConfig) || {}),
   };
+  if (Number(config.value.max_items) === 500) config.value.max_items = 2000;
   try {
     const response = await props.api.get(`plugin/${props.pluginId || 'SmartCollections'}/status`);
     const data = unwrapResponse(response) || {};
@@ -67,7 +70,7 @@ return (_ctx, _cache) => {
 
   return (_openBlock(), _createElementBlock("div", _hoisted_1, [
     _createElementVNode("div", _hoisted_2, [
-      _cache[14] || (_cache[14] = _createElementVNode("div", null, [
+      _cache[16] || (_cache[16] = _createElementVNode("div", null, [
         _createElementVNode("div", { class: "text-h6" }, "智能合集设置"),
         _createElementVNode("div", { class: "text-body-2 text-medium-emphasis" }, "连接 Emby，并控制自动同步行为。")
       ], -1)),
@@ -77,7 +80,7 @@ return (_ctx, _cache) => {
         "prepend-icon": "mdi-content-save",
         onClick: save
       }, {
-        default: _withCtx(() => [...(_cache[13] || (_cache[13] = [
+        default: _withCtx(() => [...(_cache[15] || (_cache[15] = [
           _createTextVNode("保存", -1)
         ]))]),
         _: 1
@@ -252,11 +255,38 @@ return (_ctx, _cache) => {
                   ]),
                   _: 1
                 }),
+                _createVNode(_component_VCol, {
+                  cols: "12",
+                  md: "4"
+                }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_VSwitch, {
+                      modelValue: config.value.managed_schedule_enabled,
+                      "onUpdate:modelValue": _cache[12] || (_cache[12] = $event => ((config.value.managed_schedule_enabled) = $event)),
+                      label: "定时重同步已管理合集",
+                      color: "primary"
+                    }, null, 8, ["modelValue"])
+                  ]),
+                  _: 1
+                }),
+                _createVNode(_component_VCol, {
+                  cols: "12",
+                  md: "4"
+                }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_VTextField, {
+                      modelValue: config.value.managed_schedule_cron,
+                      "onUpdate:modelValue": _cache[13] || (_cache[13] = $event => ((config.value.managed_schedule_cron) = $event)),
+                      label: "已管理合集 Cron"
+                    }, null, 8, ["modelValue"])
+                  ]),
+                  _: 1
+                }),
                 _createVNode(_component_VCol, { cols: "12" }, {
                   default: _withCtx(() => [
                     _createVNode(_component_VSwitch, {
                       modelValue: config.value.use_proxy,
-                      "onUpdate:modelValue": _cache[12] || (_cache[12] = $event => ((config.value.use_proxy) = $event)),
+                      "onUpdate:modelValue": _cache[14] || (_cache[14] = $event => ((config.value.use_proxy) = $event)),
                       label: "访问公开片单时使用 MoviePilot 代理",
                       color: "primary"
                     }, null, 8, ["modelValue"])

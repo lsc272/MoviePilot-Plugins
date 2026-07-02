@@ -17,53 +17,58 @@ const _hoisted_2 = {
   key: 0,
   class: "page-header d-flex flex-wrap align-center ga-3 mb-5"
 };
-const _hoisted_3 = { class: "source-identity d-flex align-center ga-3 flex-grow-1 min-width-0" };
-const _hoisted_4 = { class: "source-name d-flex flex-column justify-center min-width-0" };
-const _hoisted_5 = { class: "font-weight-medium text-truncate" };
-const _hoisted_6 = { class: "text-caption text-medium-emphasis" };
-const _hoisted_7 = { class: "source-actions d-flex align-center ga-2" };
-const _hoisted_8 = { class: "d-flex flex-column flex-md-row ga-3" };
-const _hoisted_9 = { class: "d-flex flex-wrap align-center ga-2 mb-4" };
-const _hoisted_10 = { class: "text-h6" };
-const _hoisted_11 = { class: "text-body-2 text-medium-emphasis mt-1" };
-const _hoisted_12 = { class: "text-h5" };
-const _hoisted_13 = { class: "text-h5 text-success" };
-const _hoisted_14 = { class: "text-h5 text-warning" };
-const _hoisted_15 = {
+const _hoisted_3 = { class: "d-flex justify-space-between text-body-2 mb-2" };
+const _hoisted_4 = { class: "source-identity d-flex align-center ga-3 flex-grow-1 min-width-0" };
+const _hoisted_5 = { class: "source-name d-flex flex-column justify-center min-width-0" };
+const _hoisted_6 = { class: "font-weight-medium text-truncate" };
+const _hoisted_7 = { class: "text-caption text-medium-emphasis" };
+const _hoisted_8 = { key: 0 };
+const _hoisted_9 = { class: "source-actions d-flex align-center ga-2" };
+const _hoisted_10 = { class: "d-flex flex-column flex-md-row ga-3" };
+const _hoisted_11 = { class: "d-flex flex-wrap align-center ga-2 mb-4" };
+const _hoisted_12 = { class: "text-h6" };
+const _hoisted_13 = { class: "text-body-2 text-medium-emphasis mt-1" };
+const _hoisted_14 = { class: "text-h5" };
+const _hoisted_15 = { class: "text-h5 text-success" };
+const _hoisted_16 = { class: "text-h5 text-warning" };
+const _hoisted_17 = {
   key: 2,
   class: "mb-4"
 };
-const _hoisted_16 = { class: "d-flex justify-space-between text-body-2 mb-2" };
-const _hoisted_17 = { class: "d-flex align-start ga-3" };
-const _hoisted_18 = { class: "flex-grow-1" };
-const _hoisted_19 = { class: "text-h6" };
-const _hoisted_20 = { class: "text-body-2 text-medium-emphasis" };
-const _hoisted_21 = ["href"];
-const _hoisted_22 = { class: "preview-heading flex-grow-1" };
-const _hoisted_23 = { class: "text-h6" };
-const _hoisted_24 = { class: "text-body-2 text-medium-emphasis" };
-const _hoisted_25 = ["href"];
-const _hoisted_26 = { class: "preview-actions d-flex flex-wrap align-center justify-end ga-3" };
-const _hoisted_27 = { class: "d-flex justify-space-between text-body-2 mb-2" };
-const _hoisted_28 = { class: "text-h5" };
-const _hoisted_29 = { class: "text-h5" };
-const _hoisted_30 = { class: "text-h5" };
+const _hoisted_18 = { class: "d-flex justify-space-between text-body-2 mb-2" };
+const _hoisted_19 = { class: "d-flex align-start ga-3" };
+const _hoisted_20 = { class: "flex-grow-1" };
+const _hoisted_21 = { class: "text-h6" };
+const _hoisted_22 = { class: "text-body-2 text-medium-emphasis" };
+const _hoisted_23 = ["href"];
+const _hoisted_24 = { class: "preview-heading flex-grow-1" };
+const _hoisted_25 = { class: "text-h6" };
+const _hoisted_26 = { class: "text-body-2 text-medium-emphasis" };
+const _hoisted_27 = ["href"];
+const _hoisted_28 = {
+  key: 1,
+  class: "preview-description text-body-2 text-medium-emphasis mt-2"
+};
+const _hoisted_29 = { class: "preview-actions d-flex flex-wrap align-center justify-end ga-3" };
+const _hoisted_30 = { class: "d-flex justify-space-between text-body-2 mb-2" };
 const _hoisted_31 = { class: "text-h5" };
-const _hoisted_32 = { class: "preview-table" };
-const _hoisted_33 = ["href"];
-const _hoisted_34 = ["href"];
-const _hoisted_35 = { key: 2 };
-const _hoisted_36 = { class: "text-medium-emphasis" };
-const _hoisted_37 = {
-  key: 4,
+const _hoisted_32 = { class: "text-h5" };
+const _hoisted_33 = { class: "text-h5" };
+const _hoisted_34 = { class: "text-h5" };
+const _hoisted_35 = { class: "preview-table" };
+const _hoisted_36 = ["href"];
+const _hoisted_37 = { key: 1 };
+const _hoisted_38 = { class: "text-medium-emphasis" };
+const _hoisted_39 = {
+  key: 3,
   class: "text-caption text-medium-emphasis"
 };
-const _hoisted_38 = ["href"];
-const _hoisted_39 = {
+const _hoisted_40 = ["href"];
+const _hoisted_41 = {
   key: 1,
   class: "text-medium-emphasis"
 };
-const _hoisted_40 = {
+const _hoisted_42 = {
   key: 2,
   class: "text-caption text-medium-emphasis"
 };
@@ -111,6 +116,10 @@ const posterFile = ref(null);
 const cleanupDialog = ref(false);
 const cleanupConfirmed = ref(false);
 const selectedBackupId = ref('');
+const previewTask = ref({ running: false, progress: 0, message: '' });
+const managedScheduleEnabled = ref(false);
+const managedScheduleCron = ref('0 4 * * *');
+const catalogPolling = ref(false);
 
 const pluginBase = computed(() => `plugin/${props.pluginId || 'SmartCollections'}`);
 const sourceItems = computed(() => status.value.catalog?.[sourceTab.value] || []);
@@ -118,7 +127,7 @@ computed(() => (preview.value?.items || []).filter(item => item.matched));
 const missingSubscribableItems = computed(() => (preview.value?.items || []).filter(
   item => !item.matched && item.tmdb_id && ['movie', 'tv'].includes(item.media_type) && !subscribedKeys.value.includes(item.key),
 ));
-const visiblePreviewItems = computed(() => (preview.value?.items || []).slice(0, 500));
+const visiblePreviewItems = computed(() => (preview.value?.items || []).slice(0, 2000));
 const collectionTools = computed(() => status.value.collection_tools || {});
 const collectionInventory = computed(() => collectionTools.value.inventory || { total: 0, managed: 0, other: 0 });
 const backupOptions = computed(() => (collectionTools.value.backups || []).map(item => ({
@@ -146,10 +155,14 @@ async function loadStatus() {
   try {
     status.value = assertResponse(await props.api.get(`${pluginBase.value}/status`)) || status.value;
     bulkSubscriptionStatus.value = status.value.subscription_batch || bulkSubscriptionStatus.value;
+    previewTask.value = status.value.preview_task || previewTask.value;
+    managedScheduleEnabled.value = Boolean(status.value.managed_schedule?.enabled);
+    managedScheduleCron.value = status.value.managed_schedule?.cron || '0 4 * * *';
     const backups = status.value.collection_tools?.backups || [];
     if (backups.length && !backups.some(item => item.id === selectedBackupId.value)) {
       selectedBackupId.value = backups[0].id;
     }
+    if (status.value.catalog_refreshing) refreshCatalog();
   } catch (err) {
     error.value = err?.message || '页面数据加载失败';
   } finally {
@@ -170,7 +183,8 @@ async function runPreview(source) {
   actionLoading.value = `preview:${source.id || source.template_id || source.url}`;
   clearMessages();
   try {
-    const data = assertResponse(await props.api.post(`${pluginBase.value}/preview`, source));
+    const started = assertResponse(await props.api.post(`${pluginBase.value}/preview`, source)) || {};
+    const data = await waitForPreview(started.task_id);
     preview.value = data;
     collectionName.value = data.title || source.name || '';
     selectedPreviewKeys.value = (data.items || []).filter(item => item.matched).map(item => item.key);
@@ -181,6 +195,38 @@ async function runPreview(source) {
   } finally {
     actionLoading.value = '';
   }
+}
+
+async function refreshCatalog() {
+  if (catalogPolling.value) return
+  catalogPolling.value = true;
+  try {
+    for (let attempt = 0; attempt < 90; attempt += 1) {
+      await wait(1000);
+      const data = assertResponse(await props.api.get(`${pluginBase.value}/catalog`)) || {};
+      status.value.catalog = data.catalog || status.value.catalog;
+      if (!data.refreshing) break
+    }
+  } catch (_) {
+    // Keep the built-in fallback labels when metadata refresh is temporarily unavailable.
+  } finally {
+    catalogPolling.value = false;
+  }
+}
+
+async function waitForPreview(taskId) {
+  if (!taskId) throw new Error('后台预览任务未返回任务编号')
+  for (let attempt = 0; attempt < 7200; attempt += 1) {
+    const data = assertResponse(await props.api.post(`${pluginBase.value}/preview/status`, { task_id: taskId })) || {};
+    previewTask.value = data;
+    if (!data.running) {
+      if (data.error) throw new Error(data.error)
+      if (!data.result) throw new Error('后台预览没有返回匹配结果')
+      return data.result
+    }
+    await wait(750);
+  }
+  throw new Error('预览匹配等待超时；任务可能仍在后台运行')
 }
 
 async function previewManual() {
@@ -302,6 +348,40 @@ async function resyncCollection(collection) {
     notice.value = `「${collection.name}」已重新同步`;
   } catch (err) {
     error.value = err?.message || '重新同步失败';
+  } finally {
+    actionLoading.value = '';
+  }
+}
+
+async function resyncAllCollections() {
+  if (!status.value.collections?.length) return
+  if (!window.confirm(`将在后台重新同步全部 ${status.value.collections.length} 个智能合集，继续吗？`)) return
+  actionLoading.value = 'resync-all';
+  clearMessages();
+  try {
+    const response = await props.api.post(`${pluginBase.value}/collections/resync/all`, {});
+    assertResponse(response);
+    notice.value = response?.message || '批量重新同步已在后台启动';
+  } catch (err) {
+    error.value = err?.message || '启动批量重新同步失败';
+  } finally {
+    actionLoading.value = '';
+  }
+}
+
+async function saveManagedSchedule() {
+  actionLoading.value = 'save-managed-schedule';
+  clearMessages();
+  try {
+    const data = assertResponse(await props.api.post(`${pluginBase.value}/collections/schedule`, {
+      enabled: managedScheduleEnabled.value,
+      cron: managedScheduleCron.value.trim(),
+    })) || {};
+    managedScheduleEnabled.value = Boolean(data.enabled);
+    managedScheduleCron.value = data.cron || managedScheduleCron.value;
+    notice.value = '定时批量重新同步设置已保存';
+  } catch (err) {
+    error.value = err?.message || '保存定时任务失败';
   } finally {
     actionLoading.value = '';
   }
@@ -547,6 +627,7 @@ return (_ctx, _cache) => {
   const _component_VTextField = _resolveComponent("VTextField");
   const _component_VWindowItem = _resolveComponent("VWindowItem");
   const _component_VCardActions = _resolveComponent("VCardActions");
+  const _component_VSwitch = _resolveComponent("VSwitch");
   const _component_VSelect = _resolveComponent("VSelect");
   const _component_VWindow = _resolveComponent("VWindow");
   const _component_VImg = _resolveComponent("VImg");
@@ -561,7 +642,7 @@ return (_ctx, _cache) => {
   return (_openBlock(), _createElementBlock("div", _hoisted_1, [
     (!__props.hideTitle)
       ? (_openBlock(), _createElementBlock("div", _hoisted_2, [
-          _cache[26] || (_cache[26] = _createElementVNode("div", null, [
+          _cache[28] || (_cache[28] = _createElementVNode("div", null, [
             _createElementVNode("div", { class: "text-h4 font-weight-bold" }, "🎬 智能合集"),
             _createElementVNode("div", { class: "text-body-1 text-medium-emphasis mt-1" }, "从公开片单、豆瓣豆列或模板创建 Emby 合集，先预览，再同步。")
           ], -1)),
@@ -614,12 +695,34 @@ return (_ctx, _cache) => {
           _: 1
         }))
       : _createCommentVNode("", true),
-    (loading.value || actionLoading.value)
+    (loading.value || (actionLoading.value && !previewTask.value.running))
       ? (_openBlock(), _createBlock(_component_VProgressLinear, {
           key: 3,
           indeterminate: "",
           color: "primary",
           class: "mb-4"
+        }))
+      : _createCommentVNode("", true),
+    (previewTask.value.running)
+      ? (_openBlock(), _createBlock(_component_VAlert, {
+          key: 4,
+          type: "info",
+          variant: "tonal",
+          class: "mb-4"
+        }, {
+          default: _withCtx(() => [
+            _createElementVNode("div", _hoisted_3, [
+              _createElementVNode("span", null, _toDisplayString(previewTask.value.message || '正在后台匹配片单…'), 1),
+              _createElementVNode("span", null, _toDisplayString(previewTask.value.progress || 0) + "%", 1)
+            ]),
+            _createVNode(_component_VProgressLinear, {
+              "model-value": previewTask.value.progress || 0,
+              color: "primary",
+              rounded: "",
+              height: "8"
+            }, null, 8, ["model-value"])
+          ]),
+          _: 1
         }))
       : _createCommentVNode("", true),
     _createVNode(_component_VCard, {
@@ -639,7 +742,7 @@ return (_ctx, _cache) => {
               value: "sources",
               "prepend-icon": "mdi-format-list-checks"
             }, {
-              default: _withCtx(() => [...(_cache[27] || (_cache[27] = [
+              default: _withCtx(() => [...(_cache[29] || (_cache[29] = [
                 _createTextVNode("片单与模板", -1)
               ]))]),
               _: 1
@@ -648,7 +751,7 @@ return (_ctx, _cache) => {
               value: "templates",
               "prepend-icon": "mdi-bookmark-box-multiple"
             }, {
-              default: _withCtx(() => [...(_cache[28] || (_cache[28] = [
+              default: _withCtx(() => [...(_cache[30] || (_cache[30] = [
                 _createTextVNode("我的模板", -1)
               ]))]),
               _: 1
@@ -657,7 +760,7 @@ return (_ctx, _cache) => {
               value: "collections",
               "prepend-icon": "mdi-folder-star-multiple"
             }, {
-              default: _withCtx(() => [...(_cache[29] || (_cache[29] = [
+              default: _withCtx(() => [...(_cache[31] || (_cache[31] = [
                 _createTextVNode("已同步合集", -1)
               ]))]),
               _: 1
@@ -670,7 +773,7 @@ return (_ctx, _cache) => {
     }),
     _createVNode(_component_VWindow, {
       modelValue: tab.value,
-      "onUpdate:modelValue": _cache[8] || (_cache[8] = $event => ((tab).value = $event))
+      "onUpdate:modelValue": _cache[10] || (_cache[10] = $event => ((tab).value = $event))
     }, {
       default: _withCtx(() => [
         _createVNode(_component_VWindowItem, { value: "sources" }, {
@@ -683,7 +786,7 @@ return (_ctx, _cache) => {
               default: _withCtx(() => [
                 _createVNode(_component_VCardTitle, { class: "d-flex flex-wrap align-center ga-2 pa-5" }, {
                   default: _withCtx(() => [
-                    _cache[30] || (_cache[30] = _createElementVNode("div", null, [
+                    _cache[32] || (_cache[32] = _createElementVNode("div", null, [
                       _createElementVNode("div", { class: "text-h6" }, "片单目录"),
                       _createElementVNode("div", { class: "text-body-2 text-medium-emphasis" }, "选择一个预览，或多选后批量同步。")
                     ], -1)),
@@ -724,13 +827,13 @@ return (_ctx, _cache) => {
                     }, {
                       default: _withCtx(() => [
                         _createVNode(_component_VTab, { value: "tmdb" }, {
-                          default: _withCtx(() => [...(_cache[31] || (_cache[31] = [
+                          default: _withCtx(() => [...(_cache[33] || (_cache[33] = [
                             _createTextVNode("TMDB 公开片单", -1)
                           ]))]),
                           _: 1
                         }),
                         _createVNode(_component_VTab, { value: "douban" }, {
-                          default: _withCtx(() => [...(_cache[32] || (_cache[32] = [
+                          default: _withCtx(() => [...(_cache[34] || (_cache[34] = [
                             _createTextVNode("热门豆列", -1)
                           ]))]),
                           _: 1
@@ -762,7 +865,7 @@ return (_ctx, _cache) => {
                                         color: "primary",
                                         class: "source-check"
                                       }, null, 8, ["modelValue", "value"]),
-                                      _createElementVNode("div", _hoisted_3, [
+                                      _createElementVNode("div", _hoisted_4, [
                                         _createVNode(_component_VAvatar, {
                                           color: sourceTab.value === 'douban' ? 'green' : 'blue',
                                           variant: "tonal",
@@ -777,12 +880,17 @@ return (_ctx, _cache) => {
                                           ]),
                                           _: 1
                                         }, 8, ["color"]),
-                                        _createElementVNode("div", _hoisted_4, [
-                                          _createElementVNode("div", _hoisted_5, _toDisplayString(source.name), 1),
-                                          _createElementVNode("div", _hoisted_6, _toDisplayString(sourceTab.value === 'douban' ? `豆列 ${source.list_id}` : source.media_type === 'tv' ? '剧集片单' : '电影片单'), 1)
+                                        _createElementVNode("div", _hoisted_5, [
+                                          _createElementVNode("div", _hoisted_6, _toDisplayString(source.name), 1),
+                                          _createElementVNode("div", _hoisted_7, [
+                                            _createTextVNode(_toDisplayString(sourceTab.value === 'douban' ? `豆列 ${source.list_id}` : source.media_type === 'tv' ? '剧集片单' : source.media_type === 'movie' ? '电影片单' : '混合片单') + " ", 1),
+                                            (source.item_count !== null && source.item_count !== undefined)
+                                              ? (_openBlock(), _createElementBlock("span", _hoisted_8, " · " + _toDisplayString(source.item_count) + " 个条目", 1))
+                                              : _createCommentVNode("", true)
+                                          ])
                                         ])
                                       ]),
-                                      _createElementVNode("div", _hoisted_7, [
+                                      _createElementVNode("div", _hoisted_9, [
                                         (source.url)
                                           ? (_openBlock(), _createBlock(_component_VBtn, {
                                               key: 0,
@@ -793,7 +901,7 @@ return (_ctx, _cache) => {
                                               variant: "text",
                                               "prepend-icon": "mdi-open-in-new"
                                             }, {
-                                              default: _withCtx(() => [...(_cache[33] || (_cache[33] = [
+                                              default: _withCtx(() => [...(_cache[35] || (_cache[35] = [
                                                 _createTextVNode("来源", -1)
                                               ]))]),
                                               _: 1
@@ -806,7 +914,7 @@ return (_ctx, _cache) => {
                                           loading: actionLoading.value === `preview:${source.id}`,
                                           onClick: $event => (runPreview(source))
                                         }, {
-                                          default: _withCtx(() => [...(_cache[34] || (_cache[34] = [
+                                          default: _withCtx(() => [...(_cache[36] || (_cache[36] = [
                                             _createTextVNode("预览匹配", -1)
                                           ]))]),
                                           _: 1
@@ -839,9 +947,9 @@ return (_ctx, _cache) => {
               default: _withCtx(() => [
                 _createVNode(_component_VCardText, { class: "pa-5" }, {
                   default: _withCtx(() => [
-                    _cache[36] || (_cache[36] = _createElementVNode("div", { class: "text-h6 mb-1" }, "手动输入公开片单", -1)),
-                    _cache[37] || (_cache[37] = _createElementVNode("div", { class: "text-body-2 text-medium-emphasis mb-4" }, "支持 TMDB List 和豆瓣豆列链接。", -1)),
-                    _createElementVNode("div", _hoisted_8, [
+                    _cache[38] || (_cache[38] = _createElementVNode("div", { class: "text-h6 mb-1" }, "手动输入公开片单", -1)),
+                    _cache[39] || (_cache[39] = _createElementVNode("div", { class: "text-body-2 text-medium-emphasis mb-4" }, "支持 TMDB List 和豆瓣豆列链接。", -1)),
+                    _createElementVNode("div", _hoisted_10, [
                       _createVNode(_component_VTextField, {
                         modelValue: manualUrl.value,
                         "onUpdate:modelValue": _cache[5] || (_cache[5] = $event => ((manualUrl).value = $event)),
@@ -856,7 +964,7 @@ return (_ctx, _cache) => {
                         loading: actionLoading.value === 'preview:manual',
                         onClick: previewManual
                       }, {
-                        default: _withCtx(() => [...(_cache[35] || (_cache[35] = [
+                        default: _withCtx(() => [...(_cache[37] || (_cache[37] = [
                           _createTextVNode("预览匹配", -1)
                         ]))]),
                         _: 1
@@ -873,8 +981,8 @@ return (_ctx, _cache) => {
         }),
         _createVNode(_component_VWindowItem, { value: "templates" }, {
           default: _withCtx(() => [
-            _createElementVNode("div", _hoisted_9, [
-              _cache[40] || (_cache[40] = _createElementVNode("div", null, [
+            _createElementVNode("div", _hoisted_11, [
+              _cache[42] || (_cache[42] = _createElementVNode("div", null, [
                 _createElementVNode("div", { class: "text-h6" }, "我的模板"),
                 _createElementVNode("div", { class: "text-body-2 text-medium-emphasis" }, "模板保存的是已解析的 TMDB 条目，可导入导出。")
               ], -1)),
@@ -885,7 +993,7 @@ return (_ctx, _cache) => {
                 disabled: !status.value.templates?.length,
                 onClick: exportTemplates
               }, {
-                default: _withCtx(() => [...(_cache[38] || (_cache[38] = [
+                default: _withCtx(() => [...(_cache[40] || (_cache[40] = [
                   _createTextVNode("导出全部", -1)
                 ]))]),
                 _: 1
@@ -895,7 +1003,7 @@ return (_ctx, _cache) => {
                 "prepend-icon": "mdi-import",
                 onClick: _cache[6] || (_cache[6] = $event => (importDialog.value = true))
               }, {
-                default: _withCtx(() => [...(_cache[39] || (_cache[39] = [
+                default: _withCtx(() => [...(_cache[41] || (_cache[41] = [
                   _createTextVNode("导入模板", -1)
                 ]))]),
                 _: 1
@@ -931,8 +1039,8 @@ return (_ctx, _cache) => {
                                     ]),
                                     _: 1
                                   }),
-                                  _createElementVNode("div", _hoisted_10, _toDisplayString(template.name), 1),
-                                  _createElementVNode("div", _hoisted_11, _toDisplayString(template.description || '自定义智能合集模板'), 1),
+                                  _createElementVNode("div", _hoisted_12, _toDisplayString(template.name), 1),
+                                  _createElementVNode("div", _hoisted_13, _toDisplayString(template.description || '自定义智能合集模板'), 1),
                                   _createVNode(_component_VChip, {
                                     size: "small",
                                     class: "mt-3"
@@ -953,7 +1061,7 @@ return (_ctx, _cache) => {
                                     "prepend-icon": "mdi-eye",
                                     onClick: $event => (runPreview({ template_id: template.id, id: template.id }))
                                   }, {
-                                    default: _withCtx(() => [...(_cache[41] || (_cache[41] = [
+                                    default: _withCtx(() => [...(_cache[43] || (_cache[43] = [
                                       _createTextVNode("预览", -1)
                                     ]))]),
                                     _: 1
@@ -983,7 +1091,7 @@ return (_ctx, _cache) => {
                   type: "info",
                   variant: "tonal"
                 }, {
-                  default: _withCtx(() => [...(_cache[42] || (_cache[42] = [
+                  default: _withCtx(() => [...(_cache[44] || (_cache[44] = [
                     _createTextVNode("预览任意片单后，可将结果保存为模板。", -1)
                   ]))]),
                   _: 1
@@ -996,12 +1104,76 @@ return (_ctx, _cache) => {
             _createVNode(_component_VCard, {
               rounded: "xl",
               variant: "outlined",
+              class: "mb-5"
+            }, {
+              default: _withCtx(() => [
+                _createVNode(_component_VCardTitle, { class: "d-flex flex-wrap align-center ga-3 pa-5" }, {
+                  default: _withCtx(() => [
+                    _cache[46] || (_cache[46] = _createElementVNode("div", null, [
+                      _createElementVNode("div", { class: "text-h6" }, "智能合集批量重新同步"),
+                      _createElementVNode("div", { class: "text-body-2 text-medium-emphasis" }, "可立即后台重同步全部已管理合集，也可用 Cron 定时执行。")
+                    ], -1)),
+                    _createVNode(_component_VSpacer),
+                    _createVNode(_component_VBtn, {
+                      color: "primary",
+                      variant: "tonal",
+                      "prepend-icon": "mdi-sync",
+                      disabled: !status.value.collections?.length,
+                      loading: actionLoading.value === 'resync-all',
+                      onClick: resyncAllCollections
+                    }, {
+                      default: _withCtx(() => [...(_cache[45] || (_cache[45] = [
+                        _createTextVNode("立即批量重新同步", -1)
+                      ]))]),
+                      _: 1
+                    }, 8, ["disabled", "loading"])
+                  ]),
+                  _: 1
+                }),
+                _createVNode(_component_VDivider),
+                _createVNode(_component_VCardText, { class: "d-flex flex-column flex-md-row align-md-center ga-3 pa-5" }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_VSwitch, {
+                      modelValue: managedScheduleEnabled.value,
+                      "onUpdate:modelValue": _cache[7] || (_cache[7] = $event => ((managedScheduleEnabled).value = $event)),
+                      label: "启用定时批量重新同步",
+                      color: "primary",
+                      "hide-details": ""
+                    }, null, 8, ["modelValue"]),
+                    _createVNode(_component_VTextField, {
+                      modelValue: managedScheduleCron.value,
+                      "onUpdate:modelValue": _cache[8] || (_cache[8] = $event => ((managedScheduleCron).value = $event)),
+                      label: "Cron 表达式",
+                      placeholder: "0 4 * * *",
+                      density: "compact",
+                      "hide-details": "",
+                      class: "schedule-cron"
+                    }, null, 8, ["modelValue"]),
+                    _createVNode(_component_VBtn, {
+                      color: "primary",
+                      loading: actionLoading.value === 'save-managed-schedule',
+                      onClick: saveManagedSchedule
+                    }, {
+                      default: _withCtx(() => [...(_cache[47] || (_cache[47] = [
+                        _createTextVNode("保存定时设置", -1)
+                      ]))]),
+                      _: 1
+                    }, 8, ["loading"])
+                  ]),
+                  _: 1
+                })
+              ]),
+              _: 1
+            }),
+            _createVNode(_component_VCard, {
+              rounded: "xl",
+              variant: "outlined",
               class: "mb-5 collection-tools-card"
             }, {
               default: _withCtx(() => [
                 _createVNode(_component_VCardTitle, { class: "d-flex flex-wrap align-center ga-3 pa-5" }, {
                   default: _withCtx(() => [
-                    _cache[44] || (_cache[44] = _createElementVNode("div", null, [
+                    _cache[49] || (_cache[49] = _createElementVNode("div", null, [
                       _createElementVNode("div", { class: "text-h6" }, "Emby 其他合集管理"),
                       _createElementVNode("div", { class: "text-body-2 text-medium-emphasis" }, "“其他合集”指未由智能合集管理的 Emby 合集；操作始终保留智能合集。")
                     ], -1)),
@@ -1011,7 +1183,7 @@ return (_ctx, _cache) => {
                       variant: "tonal",
                       "prepend-icon": "mdi-shield-check"
                     }, {
-                      default: _withCtx(() => [...(_cache[43] || (_cache[43] = [
+                      default: _withCtx(() => [...(_cache[48] || (_cache[48] = [
                         _createTextVNode("安全备份优先", -1)
                       ]))]),
                       _: 1
@@ -1041,22 +1213,22 @@ return (_ctx, _cache) => {
                           default: _withCtx(() => [
                             _createVNode(_component_VCol, { cols: "4" }, {
                               default: _withCtx(() => [
-                                _cache[45] || (_cache[45] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "全部合集", -1)),
-                                _createElementVNode("div", _hoisted_12, _toDisplayString(collectionInventory.value.total), 1)
+                                _cache[50] || (_cache[50] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "全部合集", -1)),
+                                _createElementVNode("div", _hoisted_14, _toDisplayString(collectionInventory.value.total), 1)
                               ]),
                               _: 1
                             }),
                             _createVNode(_component_VCol, { cols: "4" }, {
                               default: _withCtx(() => [
-                                _cache[46] || (_cache[46] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "智能合集", -1)),
-                                _createElementVNode("div", _hoisted_13, _toDisplayString(collectionInventory.value.managed), 1)
+                                _cache[51] || (_cache[51] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "智能合集", -1)),
+                                _createElementVNode("div", _hoisted_15, _toDisplayString(collectionInventory.value.managed), 1)
                               ]),
                               _: 1
                             }),
                             _createVNode(_component_VCol, { cols: "4" }, {
                               default: _withCtx(() => [
-                                _cache[47] || (_cache[47] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "其他合集", -1)),
-                                _createElementVNode("div", _hoisted_14, _toDisplayString(collectionInventory.value.other), 1)
+                                _cache[52] || (_cache[52] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "其他合集", -1)),
+                                _createElementVNode("div", _hoisted_16, _toDisplayString(collectionInventory.value.other), 1)
                               ]),
                               _: 1
                             })
@@ -1068,14 +1240,14 @@ return (_ctx, _cache) => {
                       variant: "tonal",
                       class: "mb-4"
                     }, {
-                      default: _withCtx(() => [...(_cache[48] || (_cache[48] = [
+                      default: _withCtx(() => [...(_cache[53] || (_cache[53] = [
                         _createTextVNode(" 备份包含合集名称、简介、外部 ID、成员和压缩主海报，保留最近 5 份。恢复只合并缺失内容，不移除现有成员。 ", -1)
                       ]))]),
                       _: 1
                     }),
                     (collectionTools.value.running)
-                      ? (_openBlock(), _createElementBlock("div", _hoisted_15, [
-                          _createElementVNode("div", _hoisted_16, [
+                      ? (_openBlock(), _createElementBlock("div", _hoisted_17, [
+                          _createElementVNode("div", _hoisted_18, [
                             _createElementVNode("span", null, _toDisplayString(collectionTools.value.message), 1),
                             _createElementVNode("span", null, _toDisplayString(collectionTools.value.progress || 0) + "%", 1)
                           ]),
@@ -1089,7 +1261,7 @@ return (_ctx, _cache) => {
                       : _createCommentVNode("", true),
                     _createVNode(_component_VSelect, {
                       modelValue: selectedBackupId.value,
-                      "onUpdate:modelValue": _cache[7] || (_cache[7] = $event => ((selectedBackupId).value = $event)),
+                      "onUpdate:modelValue": _cache[9] || (_cache[9] = $event => ((selectedBackupId).value = $event)),
                       items: backupOptions.value,
                       "item-title": "title",
                       "item-value": "id",
@@ -1110,7 +1282,7 @@ return (_ctx, _cache) => {
                       loading: actionLoading.value === 'collection-tool:backup',
                       onClick: backupOtherCollections
                     }, {
-                      default: _withCtx(() => [...(_cache[49] || (_cache[49] = [
+                      default: _withCtx(() => [...(_cache[54] || (_cache[54] = [
                         _createTextVNode("备份其他合集", -1)
                       ]))]),
                       _: 1
@@ -1123,7 +1295,7 @@ return (_ctx, _cache) => {
                       loading: actionLoading.value === 'collection-tool:restore',
                       onClick: restoreOtherCollections
                     }, {
-                      default: _withCtx(() => [...(_cache[50] || (_cache[50] = [
+                      default: _withCtx(() => [...(_cache[55] || (_cache[55] = [
                         _createTextVNode("恢复所选备份", -1)
                       ]))]),
                       _: 1
@@ -1148,8 +1320,8 @@ return (_ctx, _cache) => {
               ]),
               _: 1
             }),
-            _cache[57] || (_cache[57] = _createElementVNode("div", { class: "text-h6 mb-1" }, "已同步合集", -1)),
-            _cache[58] || (_cache[58] = _createElementVNode("div", { class: "text-body-2 text-medium-emphasis mb-4" }, "重新同步来源，或同时删除管理记录和 Emby 合集。", -1)),
+            _cache[62] || (_cache[62] = _createElementVNode("div", { class: "text-h6 mb-1" }, "已同步合集", -1)),
+            _cache[63] || (_cache[63] = _createElementVNode("div", { class: "text-body-2 text-medium-emphasis mb-4" }, "重新同步来源，或同时删除管理记录和 Emby 合集。", -1)),
             (status.value.collections?.length)
               ? (_openBlock(), _createBlock(_component_VRow, { key: 0 }, {
                   default: _withCtx(() => [
@@ -1167,7 +1339,7 @@ return (_ctx, _cache) => {
                             default: _withCtx(() => [
                               _createVNode(_component_VCardText, null, {
                                 default: _withCtx(() => [
-                                  _createElementVNode("div", _hoisted_17, [
+                                  _createElementVNode("div", _hoisted_19, [
                                     _createVNode(_component_VAvatar, {
                                       color: "green",
                                       variant: "tonal",
@@ -1178,9 +1350,9 @@ return (_ctx, _cache) => {
                                       ]),
                                       _: 1
                                     }),
-                                    _createElementVNode("div", _hoisted_18, [
-                                      _createElementVNode("div", _hoisted_19, _toDisplayString(collection.name), 1),
-                                      _createElementVNode("div", _hoisted_20, _toDisplayString(collection.source) + " · 最近同步 " + _toDisplayString(collection.last_sync_at), 1),
+                                    _createElementVNode("div", _hoisted_20, [
+                                      _createElementVNode("div", _hoisted_21, _toDisplayString(collection.name), 1),
+                                      _createElementVNode("div", _hoisted_22, _toDisplayString(collection.source) + " · 最近同步 " + _toDisplayString(collection.last_sync_at), 1),
                                       (collection.source_url)
                                         ? (_openBlock(), _createElementBlock("a", {
                                             key: 0,
@@ -1194,8 +1366,8 @@ return (_ctx, _cache) => {
                                               size: "small",
                                               class: "me-1"
                                             }),
-                                            _cache[51] || (_cache[51] = _createTextVNode("查看片单来源 ", -1))
-                                          ], 8, _hoisted_21))
+                                            _cache[56] || (_cache[56] = _createTextVNode("查看片单来源 ", -1))
+                                          ], 8, _hoisted_23))
                                         : _createCommentVNode("", true)
                                     ]),
                                     _createVNode(_component_VChip, {
@@ -1233,7 +1405,7 @@ return (_ctx, _cache) => {
                                     loading: actionLoading.value === `resync:${collection.id}`,
                                     onClick: $event => (resyncCollection(collection))
                                   }, {
-                                    default: _withCtx(() => [...(_cache[52] || (_cache[52] = [
+                                    default: _withCtx(() => [...(_cache[57] || (_cache[57] = [
                                       _createTextVNode("重新同步", -1)
                                     ]))]),
                                     _: 1
@@ -1244,7 +1416,7 @@ return (_ctx, _cache) => {
                                     loading: actionLoading.value === `preview:collection:${collection.id}`,
                                     onClick: $event => (previewCollection(collection))
                                   }, {
-                                    default: _withCtx(() => [...(_cache[53] || (_cache[53] = [
+                                    default: _withCtx(() => [...(_cache[58] || (_cache[58] = [
                                       _createTextVNode("预览匹配", -1)
                                     ]))]),
                                     _: 1
@@ -1254,7 +1426,7 @@ return (_ctx, _cache) => {
                                     "prepend-icon": "mdi-image-edit",
                                     onClick: $event => (openPosterManager(collection))
                                   }, {
-                                    default: _withCtx(() => [...(_cache[54] || (_cache[54] = [
+                                    default: _withCtx(() => [...(_cache[59] || (_cache[59] = [
                                       _createTextVNode("海报", -1)
                                     ]))]),
                                     _: 1
@@ -1266,7 +1438,7 @@ return (_ctx, _cache) => {
                                     "prepend-icon": "mdi-delete-outline",
                                     onClick: $event => (deleteCollection(collection))
                                   }, {
-                                    default: _withCtx(() => [...(_cache[55] || (_cache[55] = [
+                                    default: _withCtx(() => [...(_cache[60] || (_cache[60] = [
                                       _createTextVNode("删除", -1)
                                     ]))]),
                                     _: 1
@@ -1289,7 +1461,7 @@ return (_ctx, _cache) => {
                   type: "info",
                   variant: "tonal"
                 }, {
-                  default: _withCtx(() => [...(_cache[56] || (_cache[56] = [
+                  default: _withCtx(() => [...(_cache[61] || (_cache[61] = [
                     _createTextVNode("还没有由本插件同步并管理的 Emby 合集。", -1)
                   ]))]),
                   _: 1
@@ -1302,7 +1474,7 @@ return (_ctx, _cache) => {
     }, 8, ["modelValue"]),
     (preview.value)
       ? (_openBlock(), _createElementBlock("div", {
-          key: 4,
+          key: 5,
           ref_key: "previewAnchor",
           ref: previewAnchor,
           class: "preview-anchor pt-2"
@@ -1315,9 +1487,9 @@ return (_ctx, _cache) => {
             default: _withCtx(() => [
               _createVNode(_component_VCardTitle, { class: "preview-header d-flex flex-wrap align-center ga-3 pa-5" }, {
                 default: _withCtx(() => [
-                  _createElementVNode("div", _hoisted_22, [
-                    _createElementVNode("div", _hoisted_23, _toDisplayString(preview.value.title), 1),
-                    _createElementVNode("div", _hoisted_24, "共 " + _toDisplayString(preview.value.total_count) + " · 电影 " + _toDisplayString(preview.value.movie_count) + " · 剧集 " + _toDisplayString(preview.value.tv_count) + " · Emby 已有 " + _toDisplayString(preview.value.matched_count) + " · 缺失 " + _toDisplayString(preview.value.missing_count) + " · 可订阅 " + _toDisplayString(missingSubscribableItems.value.length) + " · 待识别 " + _toDisplayString(preview.value.unresolved_count || 0), 1),
+                  _createElementVNode("div", _hoisted_24, [
+                    _createElementVNode("div", _hoisted_25, _toDisplayString(preview.value.title), 1),
+                    _createElementVNode("div", _hoisted_26, "共 " + _toDisplayString(preview.value.total_count) + " · 电影 " + _toDisplayString(preview.value.movie_count) + " · 剧集 " + _toDisplayString(preview.value.tv_count) + " · Emby 已有 " + _toDisplayString(preview.value.matched_count) + " · 缺失 " + _toDisplayString(preview.value.missing_count) + " · 可订阅 " + _toDisplayString(missingSubscribableItems.value.length) + " · 待识别 " + _toDisplayString(preview.value.unresolved_count || 0), 1),
                     (preview.value.source_url)
                       ? (_openBlock(), _createElementBlock("a", {
                           key: 0,
@@ -1332,13 +1504,16 @@ return (_ctx, _cache) => {
                             class: "me-1"
                           }),
                           _createTextVNode(_toDisplayString(preview.value.source_url), 1)
-                        ], 8, _hoisted_25))
+                        ], 8, _hoisted_27))
+                      : _createCommentVNode("", true),
+                    (preview.value.description)
+                      ? (_openBlock(), _createElementBlock("div", _hoisted_28, _toDisplayString(preview.value.description), 1))
                       : _createCommentVNode("", true)
                   ]),
-                  _createElementVNode("div", _hoisted_26, [
+                  _createElementVNode("div", _hoisted_29, [
                     _createVNode(_component_VTextField, {
                       modelValue: collectionName.value,
-                      "onUpdate:modelValue": _cache[9] || (_cache[9] = $event => ((collectionName).value = $event)),
+                      "onUpdate:modelValue": _cache[11] || (_cache[11] = $event => ((collectionName).value = $event)),
                       label: "合集名称",
                       density: "compact",
                       "hide-details": "",
@@ -1375,7 +1550,7 @@ return (_ctx, _cache) => {
                       "prepend-icon": "mdi-bookmark-plus",
                       onClick: openTemplateDialog
                     }, {
-                      default: _withCtx(() => [...(_cache[59] || (_cache[59] = [
+                      default: _withCtx(() => [...(_cache[64] || (_cache[64] = [
                         _createTextVNode("保存为模板", -1)
                       ]))]),
                       _: 1
@@ -1395,7 +1570,7 @@ return (_ctx, _cache) => {
                         class: "mb-3"
                       }, {
                         default: _withCtx(() => [
-                          _createElementVNode("div", _hoisted_27, [
+                          _createElementVNode("div", _hoisted_30, [
                             _createElementVNode("span", null, _toDisplayString(bulkSubscriptionStatus.value.message), 1),
                             _createElementVNode("span", null, _toDisplayString(bulkSubscriptionStatus.value.progress || 0) + "%", 1)
                           ]),
@@ -1422,6 +1597,19 @@ return (_ctx, _cache) => {
                         _: 1
                       }))
                     : _createCommentVNode("", true),
+                  (preview.value.truncated_count)
+                    ? (_openBlock(), _createBlock(_component_VAlert, {
+                        key: 2,
+                        type: "info",
+                        variant: "tonal",
+                        class: "mb-3"
+                      }, {
+                        default: _withCtx(() => [
+                          _createTextVNode(" 来源共有 " + _toDisplayString(preview.value.source_reported_total) + " 个条目，本次按设置读取前 " + _toDisplayString(preview.value.total_count) + " 个。 ", 1)
+                        ]),
+                        _: 1
+                      }))
+                    : _createCommentVNode("", true),
                   _createVNode(_component_VRow, { class: "mb-3" }, {
                     default: _withCtx(() => [
                       _createVNode(_component_VCol, {
@@ -1436,8 +1624,8 @@ return (_ctx, _cache) => {
                             default: _withCtx(() => [
                               _createVNode(_component_VCardText, null, {
                                 default: _withCtx(() => [
-                                  _cache[60] || (_cache[60] = _createElementVNode("div", { class: "text-caption" }, "列表总数", -1)),
-                                  _createElementVNode("div", _hoisted_28, _toDisplayString(preview.value.total_count), 1)
+                                  _cache[65] || (_cache[65] = _createElementVNode("div", { class: "text-caption" }, "列表总数", -1)),
+                                  _createElementVNode("div", _hoisted_31, _toDisplayString(preview.value.total_count), 1)
                                 ]),
                                 _: 1
                               })
@@ -1459,8 +1647,8 @@ return (_ctx, _cache) => {
                             default: _withCtx(() => [
                               _createVNode(_component_VCardText, null, {
                                 default: _withCtx(() => [
-                                  _cache[61] || (_cache[61] = _createElementVNode("div", { class: "text-caption" }, "电影 / 剧集", -1)),
-                                  _createElementVNode("div", _hoisted_29, _toDisplayString(preview.value.movie_count) + " / " + _toDisplayString(preview.value.tv_count), 1)
+                                  _cache[66] || (_cache[66] = _createElementVNode("div", { class: "text-caption" }, "电影 / 剧集", -1)),
+                                  _createElementVNode("div", _hoisted_32, _toDisplayString(preview.value.movie_count) + " / " + _toDisplayString(preview.value.tv_count), 1)
                                 ]),
                                 _: 1
                               })
@@ -1482,8 +1670,8 @@ return (_ctx, _cache) => {
                             default: _withCtx(() => [
                               _createVNode(_component_VCardText, null, {
                                 default: _withCtx(() => [
-                                  _cache[62] || (_cache[62] = _createElementVNode("div", { class: "text-caption" }, "已匹配", -1)),
-                                  _createElementVNode("div", _hoisted_30, _toDisplayString(preview.value.matched_count), 1)
+                                  _cache[67] || (_cache[67] = _createElementVNode("div", { class: "text-caption" }, "已匹配", -1)),
+                                  _createElementVNode("div", _hoisted_33, _toDisplayString(preview.value.matched_count), 1)
                                 ]),
                                 _: 1
                               })
@@ -1505,8 +1693,8 @@ return (_ctx, _cache) => {
                             default: _withCtx(() => [
                               _createVNode(_component_VCardText, null, {
                                 default: _withCtx(() => [
-                                  _cache[63] || (_cache[63] = _createElementVNode("div", { class: "text-caption" }, "缺失", -1)),
-                                  _createElementVNode("div", _hoisted_31, _toDisplayString(preview.value.missing_count), 1)
+                                  _cache[68] || (_cache[68] = _createElementVNode("div", { class: "text-caption" }, "缺失", -1)),
+                                  _createElementVNode("div", _hoisted_34, _toDisplayString(preview.value.missing_count), 1)
                                 ]),
                                 _: 1
                               })
@@ -1519,13 +1707,13 @@ return (_ctx, _cache) => {
                     ]),
                     _: 1
                   }),
-                  _createElementVNode("div", _hoisted_32, [
+                  _createElementVNode("div", _hoisted_35, [
                     _createVNode(_component_VTable, {
                       hover: "",
                       density: "comfortable"
                     }, {
                       default: _withCtx(() => [
-                        _cache[64] || (_cache[64] = _createElementVNode("thead", null, [
+                        _cache[69] || (_cache[69] = _createElementVNode("thead", null, [
                           _createElementVNode("tr", null, [
                             _createElementVNode("th"),
                             _createElementVNode("th", null, "#"),
@@ -1545,7 +1733,7 @@ return (_ctx, _cache) => {
                                   ? (_openBlock(), _createBlock(_component_VCheckboxBtn, {
                                       key: 0,
                                       modelValue: selectedPreviewKeys.value,
-                                      "onUpdate:modelValue": _cache[10] || (_cache[10] = $event => ((selectedPreviewKeys).value = $event)),
+                                      "onUpdate:modelValue": _cache[12] || (_cache[12] = $event => ((selectedPreviewKeys).value = $event)),
                                       value: item.key,
                                       color: "success"
                                     }, null, 8, ["modelValue", "value"]))
@@ -1555,6 +1743,7 @@ return (_ctx, _cache) => {
                               _createElementVNode("td", null, [
                                 _createVNode(_component_VImg, {
                                   src: item.poster_url,
+                                  referrerpolicy: "no-referrer",
                                   width: "42",
                                   height: "62",
                                   cover: "",
@@ -1575,24 +1764,16 @@ return (_ctx, _cache) => {
                                 }, 1032, ["color"])
                               ]),
                               _createElementVNode("td", null, [
-                                (item.matched && item.emby_url)
+                                (tmdbLink(item))
                                   ? (_openBlock(), _createElementBlock("a", {
                                       key: 0,
-                                      href: item.emby_url,
+                                      href: tmdbLink(item),
                                       target: "_blank",
                                       rel: "noopener",
-                                      class: "emby-link"
-                                    }, _toDisplayString(item.title), 9, _hoisted_33))
-                                  : (tmdbLink(item))
-                                    ? (_openBlock(), _createElementBlock("a", {
-                                        key: 1,
-                                        href: tmdbLink(item),
-                                        target: "_blank",
-                                        rel: "noopener",
-                                        class: "item-link"
-                                      }, _toDisplayString(item.title), 9, _hoisted_34))
-                                    : (_openBlock(), _createElementBlock("span", _hoisted_35, _toDisplayString(item.title), 1)),
-                                _createElementVNode("span", _hoisted_36, _toDisplayString(item.year ? `(${item.year})` : ''), 1),
+                                      class: "item-link"
+                                    }, _toDisplayString(item.title), 9, _hoisted_36))
+                                  : (_openBlock(), _createElementBlock("span", _hoisted_37, _toDisplayString(item.title), 1)),
+                                _createElementVNode("span", _hoisted_38, _toDisplayString(item.year ? `(${item.year})` : ''), 1),
                                 _createVNode(_component_VChip, {
                                   size: "x-small",
                                   class: "ms-2"
@@ -1604,7 +1785,7 @@ return (_ctx, _cache) => {
                                 }, 1024),
                                 (!item.matched && item.tmdb_id)
                                   ? (_openBlock(), _createBlock(_component_VBtn, {
-                                      key: 3,
+                                      key: 2,
                                       size: "x-small",
                                       color: "primary",
                                       variant: "tonal",
@@ -1621,7 +1802,7 @@ return (_ctx, _cache) => {
                                     }, 1032, ["loading", "disabled", "onClick"]))
                                   : _createCommentVNode("", true),
                                 (!item.matched)
-                                  ? (_openBlock(), _createElementBlock("div", _hoisted_37, _toDisplayString(item.missing_reason), 1))
+                                  ? (_openBlock(), _createElementBlock("div", _hoisted_39, _toDisplayString(item.missing_reason), 1))
                                   : _createCommentVNode("", true)
                               ]),
                               _createElementVNode("td", null, [
@@ -1632,10 +1813,10 @@ return (_ctx, _cache) => {
                                       target: "_blank",
                                       rel: "noopener",
                                       class: "emby-link"
-                                    }, _toDisplayString(item.emby_name), 9, _hoisted_38))
-                                  : (_openBlock(), _createElementBlock("span", _hoisted_39, _toDisplayString(item.emby_name || '—'), 1)),
+                                    }, _toDisplayString(item.emby_name), 9, _hoisted_40))
+                                  : (_openBlock(), _createElementBlock("span", _hoisted_41, _toDisplayString(item.emby_name || '—'), 1)),
                                 (item.match_method === 'title')
-                                  ? (_openBlock(), _createElementBlock("span", _hoisted_40, "（标题兜底）"))
+                                  ? (_openBlock(), _createElementBlock("span", _hoisted_42, "（标题兜底）"))
                                   : _createCommentVNode("", true)
                               ])
                             ]))
@@ -1645,15 +1826,15 @@ return (_ctx, _cache) => {
                       _: 1
                     })
                   ]),
-                  (preview.value.items?.length > 500)
+                  (preview.value.items?.length > 2000)
                     ? (_openBlock(), _createBlock(_component_VAlert, {
-                        key: 2,
+                        key: 3,
                         type: "info",
                         variant: "tonal",
                         class: "mt-3"
                       }, {
-                        default: _withCtx(() => [...(_cache[65] || (_cache[65] = [
-                          _createTextVNode("页面只展示前 500 条；同步和一键订阅仍会处理全部条目。", -1)
+                        default: _withCtx(() => [...(_cache[70] || (_cache[70] = [
+                          _createTextVNode("页面只展示前 2000 条；同步和一键订阅仍会处理全部条目。", -1)
                         ]))]),
                         _: 1
                       }))
@@ -1668,7 +1849,7 @@ return (_ctx, _cache) => {
       : _createCommentVNode("", true),
     _createVNode(_component_VDialog, {
       modelValue: templateDialog.value,
-      "onUpdate:modelValue": _cache[14] || (_cache[14] = $event => ((templateDialog).value = $event)),
+      "onUpdate:modelValue": _cache[16] || (_cache[16] = $event => ((templateDialog).value = $event)),
       "max-width": "560"
     }, {
       default: _withCtx(() => [
@@ -1681,12 +1862,12 @@ return (_ctx, _cache) => {
               default: _withCtx(() => [
                 _createVNode(_component_VTextField, {
                   modelValue: templateName.value,
-                  "onUpdate:modelValue": _cache[11] || (_cache[11] = $event => ((templateName).value = $event)),
+                  "onUpdate:modelValue": _cache[13] || (_cache[13] = $event => ((templateName).value = $event)),
                   label: "模板名称"
                 }, null, 8, ["modelValue"]),
                 _createVNode(_component_VTextarea, {
                   modelValue: templateDescription.value,
-                  "onUpdate:modelValue": _cache[12] || (_cache[12] = $event => ((templateDescription).value = $event)),
+                  "onUpdate:modelValue": _cache[14] || (_cache[14] = $event => ((templateDescription).value = $event)),
                   label: "模板说明",
                   rows: "3"
                 }, null, 8, ["modelValue"])
@@ -1698,9 +1879,9 @@ return (_ctx, _cache) => {
                 _createVNode(_component_VSpacer),
                 _createVNode(_component_VBtn, {
                   variant: "text",
-                  onClick: _cache[13] || (_cache[13] = $event => (templateDialog.value = false))
+                  onClick: _cache[15] || (_cache[15] = $event => (templateDialog.value = false))
                 }, {
-                  default: _withCtx(() => [...(_cache[66] || (_cache[66] = [
+                  default: _withCtx(() => [...(_cache[71] || (_cache[71] = [
                     _createTextVNode("取消", -1)
                   ]))]),
                   _: 1
@@ -1710,7 +1891,7 @@ return (_ctx, _cache) => {
                   loading: actionLoading.value === 'save-template',
                   onClick: saveTemplate
                 }, {
-                  default: _withCtx(() => [...(_cache[67] || (_cache[67] = [
+                  default: _withCtx(() => [...(_cache[72] || (_cache[72] = [
                     _createTextVNode("保存", -1)
                   ]))]),
                   _: 1
@@ -1726,7 +1907,7 @@ return (_ctx, _cache) => {
     }, 8, ["modelValue"]),
     _createVNode(_component_VDialog, {
       modelValue: importDialog.value,
-      "onUpdate:modelValue": _cache[17] || (_cache[17] = $event => ((importDialog).value = $event)),
+      "onUpdate:modelValue": _cache[19] || (_cache[19] = $event => ((importDialog).value = $event)),
       "max-width": "720"
     }, {
       default: _withCtx(() => [
@@ -1739,7 +1920,7 @@ return (_ctx, _cache) => {
               default: _withCtx(() => [
                 _createVNode(_component_VTextarea, {
                   modelValue: importText.value,
-                  "onUpdate:modelValue": _cache[15] || (_cache[15] = $event => ((importText).value = $event)),
+                  "onUpdate:modelValue": _cache[17] || (_cache[17] = $event => ((importText).value = $event)),
                   rows: "12",
                   label: "粘贴模板 JSON"
                 }, null, 8, ["modelValue"])
@@ -1751,9 +1932,9 @@ return (_ctx, _cache) => {
                 _createVNode(_component_VSpacer),
                 _createVNode(_component_VBtn, {
                   variant: "text",
-                  onClick: _cache[16] || (_cache[16] = $event => (importDialog.value = false))
+                  onClick: _cache[18] || (_cache[18] = $event => (importDialog.value = false))
                 }, {
-                  default: _withCtx(() => [...(_cache[68] || (_cache[68] = [
+                  default: _withCtx(() => [...(_cache[73] || (_cache[73] = [
                     _createTextVNode("取消", -1)
                   ]))]),
                   _: 1
@@ -1762,7 +1943,7 @@ return (_ctx, _cache) => {
                   color: "primary",
                   onClick: importTemplates
                 }, {
-                  default: _withCtx(() => [...(_cache[69] || (_cache[69] = [
+                  default: _withCtx(() => [...(_cache[74] || (_cache[74] = [
                     _createTextVNode("导入", -1)
                   ]))]),
                   _: 1
@@ -1778,7 +1959,7 @@ return (_ctx, _cache) => {
     }, 8, ["modelValue"]),
     _createVNode(_component_VDialog, {
       modelValue: cleanupDialog.value,
-      "onUpdate:modelValue": _cache[20] || (_cache[20] = $event => ((cleanupDialog).value = $event)),
+      "onUpdate:modelValue": _cache[22] || (_cache[22] = $event => ((cleanupDialog).value = $event)),
       "max-width": "620",
       persistent: ""
     }, {
@@ -1786,7 +1967,7 @@ return (_ctx, _cache) => {
         _createVNode(_component_VCard, { rounded: "xl" }, {
           default: _withCtx(() => [
             _createVNode(_component_VCardTitle, { class: "pa-5 text-error" }, {
-              default: _withCtx(() => [...(_cache[70] || (_cache[70] = [
+              default: _withCtx(() => [...(_cache[75] || (_cache[75] = [
                 _createTextVNode("确认清理其他 Emby 合集", -1)
               ]))]),
               _: 1
@@ -1804,10 +1985,10 @@ return (_ctx, _cache) => {
                   ]),
                   _: 1
                 }),
-                _cache[71] || (_cache[71] = _createElementVNode("div", { class: "text-body-2 text-medium-emphasis mb-3" }, "恢复入口会一直保留在“Emby 其他合集管理”中，默认使用合并恢复。", -1)),
+                _cache[76] || (_cache[76] = _createElementVNode("div", { class: "text-body-2 text-medium-emphasis mb-3" }, "恢复入口会一直保留在“Emby 其他合集管理”中，默认使用合并恢复。", -1)),
                 _createVNode(_component_VCheckbox, {
                   modelValue: cleanupConfirmed.value,
-                  "onUpdate:modelValue": _cache[18] || (_cache[18] = $event => ((cleanupConfirmed).value = $event)),
+                  "onUpdate:modelValue": _cache[20] || (_cache[20] = $event => ((cleanupConfirmed).value = $event)),
                   color: "error",
                   label: "我已理解操作范围，并确认先自动备份再清理",
                   "hide-details": ""
@@ -1820,9 +2001,9 @@ return (_ctx, _cache) => {
                 _createVNode(_component_VSpacer),
                 _createVNode(_component_VBtn, {
                   variant: "text",
-                  onClick: _cache[19] || (_cache[19] = $event => (cleanupDialog.value = false))
+                  onClick: _cache[21] || (_cache[21] = $event => (cleanupDialog.value = false))
                 }, {
-                  default: _withCtx(() => [...(_cache[72] || (_cache[72] = [
+                  default: _withCtx(() => [...(_cache[77] || (_cache[77] = [
                     _createTextVNode("取消", -1)
                   ]))]),
                   _: 1
@@ -1833,7 +2014,7 @@ return (_ctx, _cache) => {
                   "prepend-icon": "mdi-delete-sweep",
                   onClick: cleanupOtherCollections
                 }, {
-                  default: _withCtx(() => [...(_cache[73] || (_cache[73] = [
+                  default: _withCtx(() => [...(_cache[78] || (_cache[78] = [
                     _createTextVNode("自动备份并清理", -1)
                   ]))]),
                   _: 1
@@ -1850,7 +2031,7 @@ return (_ctx, _cache) => {
     _createVNode(_component_VDialog, {
       "model-value": Boolean(enlargedPoster.value),
       "max-width": "620",
-      "onUpdate:modelValue": _cache[22] || (_cache[22] = value => { if (!value) enlargedPoster.value = ''; })
+      "onUpdate:modelValue": _cache[24] || (_cache[24] = value => { if (!value) enlargedPoster.value = ''; })
     }, {
       default: _withCtx(() => [
         _createVNode(_component_VCard, { rounded: "xl" }, {
@@ -1869,7 +2050,7 @@ return (_ctx, _cache) => {
                 _createVNode(_component_VBtn, {
                   icon: "mdi-close",
                   variant: "text",
-                  onClick: _cache[21] || (_cache[21] = $event => (enlargedPoster.value = ''))
+                  onClick: _cache[23] || (_cache[23] = $event => (enlargedPoster.value = ''))
                 })
               ]),
               _: 1
@@ -1888,7 +2069,7 @@ return (_ctx, _cache) => {
     }, 8, ["model-value"]),
     _createVNode(_component_VDialog, {
       modelValue: posterDialog.value,
-      "onUpdate:modelValue": _cache[25] || (_cache[25] = $event => ((posterDialog).value = $event)),
+      "onUpdate:modelValue": _cache[27] || (_cache[27] = $event => ((posterDialog).value = $event)),
       "max-width": "620"
     }, {
       default: _withCtx(() => [
@@ -1908,7 +2089,7 @@ return (_ctx, _cache) => {
                   variant: "tonal",
                   class: "mb-5"
                 }, {
-                  default: _withCtx(() => [...(_cache[74] || (_cache[74] = [
+                  default: _withCtx(() => [...(_cache[79] || (_cache[79] = [
                     _createTextVNode("自动生成会使用片单中的多张海报组成倾斜海报墙，并叠加由下向上的浅色渐变与自适应标题；也可以上传自己的图片覆盖。", -1)
                   ]))]),
                   _: 1
@@ -1922,15 +2103,15 @@ return (_ctx, _cache) => {
                   loading: actionLoading.value === `poster-auto:${posterCollection.value?.id}`,
                   onClick: generateCollectionPoster
                 }, {
-                  default: _withCtx(() => [...(_cache[75] || (_cache[75] = [
+                  default: _withCtx(() => [...(_cache[80] || (_cache[80] = [
                     _createTextVNode("自动生成并上传", -1)
                   ]))]),
                   _: 1
                 }, 8, ["loading"]),
-                _cache[77] || (_cache[77] = _createElementVNode("div", { class: "text-center text-body-2 text-medium-emphasis my-5" }, "或上传自己的海报", -1)),
+                _cache[82] || (_cache[82] = _createElementVNode("div", { class: "text-center text-body-2 text-medium-emphasis my-5" }, "或上传自己的海报", -1)),
                 _createVNode(_component_VFileInput, {
                   modelValue: posterFile.value,
-                  "onUpdate:modelValue": _cache[23] || (_cache[23] = $event => ((posterFile).value = $event)),
+                  "onUpdate:modelValue": _cache[25] || (_cache[25] = $event => ((posterFile).value = $event)),
                   accept: "image/jpeg,image/png,image/webp",
                   label: "选择自定义海报",
                   "prepend-icon": "mdi-image-plus",
@@ -1944,7 +2125,7 @@ return (_ctx, _cache) => {
                   loading: actionLoading.value === `poster-upload:${posterCollection.value?.id}`,
                   onClick: uploadCollectionPoster
                 }, {
-                  default: _withCtx(() => [...(_cache[76] || (_cache[76] = [
+                  default: _withCtx(() => [...(_cache[81] || (_cache[81] = [
                     _createTextVNode("上传自定义海报", -1)
                   ]))]),
                   _: 1
@@ -1957,9 +2138,9 @@ return (_ctx, _cache) => {
                 _createVNode(_component_VSpacer),
                 _createVNode(_component_VBtn, {
                   variant: "text",
-                  onClick: _cache[24] || (_cache[24] = $event => (posterDialog.value = false))
+                  onClick: _cache[26] || (_cache[26] = $event => (posterDialog.value = false))
                 }, {
-                  default: _withCtx(() => [...(_cache[78] || (_cache[78] = [
+                  default: _withCtx(() => [...(_cache[83] || (_cache[83] = [
                     _createTextVNode("关闭", -1)
                   ]))]),
                   _: 1
@@ -1978,6 +2159,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const SmartCollectionsApp = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-86950922"]]);
+const SmartCollectionsApp = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-6336e7ab"]]);
 
 export { SmartCollectionsApp as S, _export_sfc as _ };

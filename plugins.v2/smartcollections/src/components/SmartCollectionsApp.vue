@@ -37,6 +37,10 @@ const posterFile = ref(null)
 const cleanupDialog = ref(false)
 const cleanupConfirmed = ref(false)
 const selectedBackupId = ref('')
+const previewTask = ref({ running: false, progress: 0, message: '' })
+const managedScheduleEnabled = ref(false)
+const managedScheduleCron = ref('0 4 * * *')
+const catalogPolling = ref(false)
 
 const pluginBase = computed(() => `plugin/${props.pluginId || 'SmartCollections'}`)
 const sourceItems = computed(() => status.value.catalog?.[sourceTab.value] || [])
@@ -44,7 +48,7 @@ const matchedItems = computed(() => (preview.value?.items || []).filter(item => 
 const missingSubscribableItems = computed(() => (preview.value?.items || []).filter(
   item => !item.matched && item.tmdb_id && ['movie', 'tv'].includes(item.media_type) && !subscribedKeys.value.includes(item.key),
 ))
-const visiblePreviewItems = computed(() => (preview.value?.items || []).slice(0, 500))
+const visiblePreviewItems = computed(() => (preview.value?.items || []).slice(0, 2000))
 const collectionTools = computed(() => status.value.collection_tools || {})
 const collectionInventory = computed(() => collectionTools.value.inventory || { total: 0, managed: 0, other: 0 })
 const backupOptions = computed(() => (collectionTools.value.backups || []).map(item => ({
@@ -72,10 +76,14 @@ async function loadStatus() {
   try {
     status.value = assertResponse(await props.api.get(`${pluginBase.value}/status`)) || status.value
     bulkSubscriptionStatus.value = status.value.subscription_batch || bulkSubscriptionStatus.value
+    previewTask.value = status.value.preview_task || previewTask.value
+    managedScheduleEnabled.value = Boolean(status.value.managed_schedule?.enabled)
+    managedScheduleCron.value = status.value.managed_schedule?.cron || '0 4 * * *'
     const backups = status.value.collection_tools?.backups || []
     if (backups.length && !backups.some(item => item.id === selectedBackupId.value)) {
       selectedBackupId.value = backups[0].id
     }
+    if (status.value.catalog_refreshing) refreshCatalog()
   } catch (err) {
     error.value = err?.message || '页面数据加载失败'
   } finally {
@@ -96,7 +104,8 @@ async function runPreview(source) {
   actionLoading.value = `preview:${source.id || source.template_id || source.url}`
   clearMessages()
   try {
-    const data = assertResponse(await props.api.post(`${pluginBase.value}/preview`, source))
+    const started = assertResponse(await props.api.post(`${pluginBase.value}/preview`, source)) || {}
+    const data = await waitForPreview(started.task_id)
     preview.value = data
     collectionName.value = data.title || source.name || ''
     selectedPreviewKeys.value = (data.items || []).filter(item => item.matched).map(item => item.key)
@@ -107,6 +116,38 @@ async function runPreview(source) {
   } finally {
     actionLoading.value = ''
   }
+}
+
+async function refreshCatalog() {
+  if (catalogPolling.value) return
+  catalogPolling.value = true
+  try {
+    for (let attempt = 0; attempt < 90; attempt += 1) {
+      await wait(1000)
+      const data = assertResponse(await props.api.get(`${pluginBase.value}/catalog`)) || {}
+      status.value.catalog = data.catalog || status.value.catalog
+      if (!data.refreshing) break
+    }
+  } catch (_) {
+    // Keep the built-in fallback labels when metadata refresh is temporarily unavailable.
+  } finally {
+    catalogPolling.value = false
+  }
+}
+
+async function waitForPreview(taskId) {
+  if (!taskId) throw new Error('后台预览任务未返回任务编号')
+  for (let attempt = 0; attempt < 7200; attempt += 1) {
+    const data = assertResponse(await props.api.post(`${pluginBase.value}/preview/status`, { task_id: taskId })) || {}
+    previewTask.value = data
+    if (!data.running) {
+      if (data.error) throw new Error(data.error)
+      if (!data.result) throw new Error('后台预览没有返回匹配结果')
+      return data.result
+    }
+    await wait(750)
+  }
+  throw new Error('预览匹配等待超时；任务可能仍在后台运行')
 }
 
 async function previewManual() {
@@ -228,6 +269,40 @@ async function resyncCollection(collection) {
     notice.value = `「${collection.name}」已重新同步`
   } catch (err) {
     error.value = err?.message || '重新同步失败'
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
+async function resyncAllCollections() {
+  if (!status.value.collections?.length) return
+  if (!window.confirm(`将在后台重新同步全部 ${status.value.collections.length} 个智能合集，继续吗？`)) return
+  actionLoading.value = 'resync-all'
+  clearMessages()
+  try {
+    const response = await props.api.post(`${pluginBase.value}/collections/resync/all`, {})
+    assertResponse(response)
+    notice.value = response?.message || '批量重新同步已在后台启动'
+  } catch (err) {
+    error.value = err?.message || '启动批量重新同步失败'
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
+async function saveManagedSchedule() {
+  actionLoading.value = 'save-managed-schedule'
+  clearMessages()
+  try {
+    const data = assertResponse(await props.api.post(`${pluginBase.value}/collections/schedule`, {
+      enabled: managedScheduleEnabled.value,
+      cron: managedScheduleCron.value.trim(),
+    })) || {}
+    managedScheduleEnabled.value = Boolean(data.enabled)
+    managedScheduleCron.value = data.cron || managedScheduleCron.value
+    notice.value = '定时批量重新同步设置已保存'
+  } catch (err) {
+    error.value = err?.message || '保存定时任务失败'
   } finally {
     actionLoading.value = ''
   }
@@ -468,7 +543,14 @@ onMounted(loadStatus)
 
     <VAlert v-if="error" type="error" variant="tonal" closable class="mb-4" @click:close="error = ''">{{ error }}</VAlert>
     <VAlert v-if="notice" type="success" variant="tonal" closable class="mb-4" @click:close="notice = ''">{{ notice }}</VAlert>
-    <VProgressLinear v-if="loading || actionLoading" indeterminate color="primary" class="mb-4" />
+    <VProgressLinear v-if="loading || (actionLoading && !previewTask.running)" indeterminate color="primary" class="mb-4" />
+    <VAlert v-if="previewTask.running" type="info" variant="tonal" class="mb-4">
+      <div class="d-flex justify-space-between text-body-2 mb-2">
+        <span>{{ previewTask.message || '正在后台匹配片单…' }}</span>
+        <span>{{ previewTask.progress || 0 }}%</span>
+      </div>
+      <VProgressLinear :model-value="previewTask.progress || 0" color="primary" rounded height="8" />
+    </VAlert>
 
     <VCard rounded="xl" variant="outlined" class="mb-5">
       <VTabs v-model="tab" color="primary" grow>
@@ -507,7 +589,10 @@ onMounted(loadStatus)
                       </VAvatar>
                       <div class="source-name d-flex flex-column justify-center min-width-0">
                         <div class="font-weight-medium text-truncate">{{ source.name }}</div>
-                        <div class="text-caption text-medium-emphasis">{{ sourceTab === 'douban' ? `豆列 ${source.list_id}` : source.media_type === 'tv' ? '剧集片单' : '电影片单' }}</div>
+                        <div class="text-caption text-medium-emphasis">
+                          {{ sourceTab === 'douban' ? `豆列 ${source.list_id}` : source.media_type === 'tv' ? '剧集片单' : source.media_type === 'movie' ? '电影片单' : '混合片单' }}
+                          <span v-if="source.item_count !== null && source.item_count !== undefined"> · {{ source.item_count }} 个条目</span>
+                        </div>
                       </div>
                     </div>
                     <div class="source-actions d-flex align-center ga-2">
@@ -569,6 +654,23 @@ onMounted(loadStatus)
       </VWindowItem>
 
       <VWindowItem value="collections">
+        <VCard rounded="xl" variant="outlined" class="mb-5">
+          <VCardTitle class="d-flex flex-wrap align-center ga-3 pa-5">
+            <div>
+              <div class="text-h6">智能合集批量重新同步</div>
+              <div class="text-body-2 text-medium-emphasis">可立即后台重同步全部已管理合集，也可用 Cron 定时执行。</div>
+            </div>
+            <VSpacer />
+            <VBtn color="primary" variant="tonal" prepend-icon="mdi-sync" :disabled="!status.collections?.length" :loading="actionLoading === 'resync-all'" @click="resyncAllCollections">立即批量重新同步</VBtn>
+          </VCardTitle>
+          <VDivider />
+          <VCardText class="d-flex flex-column flex-md-row align-md-center ga-3 pa-5">
+            <VSwitch v-model="managedScheduleEnabled" label="启用定时批量重新同步" color="primary" hide-details />
+            <VTextField v-model="managedScheduleCron" label="Cron 表达式" placeholder="0 4 * * *" density="compact" hide-details class="schedule-cron" />
+            <VBtn color="primary" :loading="actionLoading === 'save-managed-schedule'" @click="saveManagedSchedule">保存定时设置</VBtn>
+          </VCardText>
+        </VCard>
+
         <VCard rounded="xl" variant="outlined" class="mb-5 collection-tools-card">
           <VCardTitle class="d-flex flex-wrap align-center ga-3 pa-5">
             <div>
@@ -678,6 +780,7 @@ onMounted(loadStatus)
             <a v-if="preview.source_url" :href="preview.source_url" target="_blank" rel="noopener" class="source-link text-caption">
               <VIcon icon="mdi-open-in-new" size="small" class="me-1" />{{ preview.source_url }}
             </a>
+            <div v-if="preview.description" class="preview-description text-body-2 text-medium-emphasis mt-2">{{ preview.description }}</div>
           </div>
           <div class="preview-actions d-flex flex-wrap align-center justify-end ga-3">
             <VTextField v-model="collectionName" label="合集名称" density="compact" hide-details class="collection-name" />
@@ -705,6 +808,9 @@ onMounted(loadStatus)
           <VAlert v-if="preview.unavailable_count" type="warning" variant="tonal" class="mb-3">
             来源页面标称 {{ preview.source_reported_total }} 个条目，但公开页面实际只返回 {{ preview.total_count }} 个；另有 {{ preview.unavailable_count }} 个条目可能已删除、失效或仅创建者可见。
           </VAlert>
+          <VAlert v-if="preview.truncated_count" type="info" variant="tonal" class="mb-3">
+            来源共有 {{ preview.source_reported_total }} 个条目，本次按设置读取前 {{ preview.total_count }} 个。
+          </VAlert>
           <VRow class="mb-3">
             <VCol cols="6" md="3"><VCard color="blue" variant="tonal"><VCardText><div class="text-caption">列表总数</div><div class="text-h5">{{ preview.total_count }}</div></VCardText></VCard></VCol>
             <VCol cols="6" md="3"><VCard color="cyan" variant="tonal"><VCardText><div class="text-caption">电影 / 剧集</div><div class="text-h5">{{ preview.movie_count }} / {{ preview.tv_count }}</div></VCardText></VCard></VCol>
@@ -721,6 +827,7 @@ onMounted(loadStatus)
                   <td>
                     <VImg
                       :src="item.poster_url"
+                      referrerpolicy="no-referrer"
                       width="42"
                       height="62"
                       cover
@@ -730,8 +837,7 @@ onMounted(loadStatus)
                   </td>
                   <td><VChip :color="item.matched ? 'success' : 'default'" size="small" variant="tonal">{{ item.matched ? '已匹配' : '缺失' }}</VChip></td>
                   <td>
-                    <a v-if="item.matched && item.emby_url" :href="item.emby_url" target="_blank" rel="noopener" class="emby-link">{{ item.title }}</a>
-                    <a v-else-if="tmdbLink(item)" :href="tmdbLink(item)" target="_blank" rel="noopener" class="item-link">{{ item.title }}</a>
+                    <a v-if="tmdbLink(item)" :href="tmdbLink(item)" target="_blank" rel="noopener" class="item-link">{{ item.title }}</a>
                     <span v-else>{{ item.title }}</span>
                     <span class="text-medium-emphasis"> {{ item.year ? `(${item.year})` : '' }}</span>
                     <VChip size="x-small" class="ms-2">{{ item.media_type === 'tv' ? '剧集' : item.media_type === 'movie' ? '电影' : '未知' }}</VChip>
@@ -757,7 +863,7 @@ onMounted(loadStatus)
               </tbody>
             </VTable>
           </div>
-          <VAlert v-if="preview.items?.length > 500" type="info" variant="tonal" class="mt-3">页面只展示前 500 条；同步和一键订阅仍会处理全部条目。</VAlert>
+          <VAlert v-if="preview.items?.length > 2000" type="info" variant="tonal" class="mt-3">页面只展示前 2000 条；同步和一键订阅仍会处理全部条目。</VAlert>
         </VCardText>
       </VCard>
     </div>
@@ -852,6 +958,8 @@ onMounted(loadStatus)
 .collection-name { min-width: 230px; max-width: 360px; }
 .preview-heading { flex: 1 1 360px; min-width: 260px; }
 .preview-actions { flex: 1 1 680px; min-width: 0; }
+.preview-description { max-width: 900px; line-height: 1.65; white-space: pre-line; }
+.schedule-cron { min-width: 240px; max-width: 360px; }
 .preview-anchor { scroll-margin-top: 72px; }
 .preview-table { max-height: 650px; overflow: auto; border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); border-radius: 12px; }
 .poster { background: rgba(var(--v-theme-on-surface), .06); }
