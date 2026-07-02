@@ -56,8 +56,8 @@ POPULAR_TMDB_LISTS = [
     {"title": "奥斯卡历届最佳影片", "value": "finly_oscars_animation", "list_id": "8648843", "media_type": "movie"},
     {"title": "历届金球奖电影精选", "value": "finly_golden_globes", "list_id": "8648849", "media_type": "movie"},
     {"title": "历届英国电影学院奖精选", "value": "finly_bafta", "list_id": "8648848", "media_type": "movie"},
-    {"title": "戛纳电影节精选", "value": "finly_cannes", "list_id": "8648844", "media_type": "movie"},
-    {"title": "威尼斯电影节精选", "value": "finly_venice", "list_id": "8648854", "media_type": "movie"},
+    {"title": "戛纳电影节金棕榈奖", "value": "finly_cannes", "list_id": "8648844", "media_type": "movie"},
+    {"title": "威尼斯电影节金狮奖", "value": "finly_venice", "list_id": "8648854", "media_type": "movie"},
     {"title": "IMDb Top 250 电影", "value": "finly_imdb_movies", "list_id": "8647021", "media_type": "movie"},
     {"title": "IMDb Top 250 剧集", "value": "finly_imdb_tv", "list_id": "8647022", "media_type": "tv"},
     {"title": "豆瓣电影 Top 250", "value": "finly_douban_top250", "list_id": "8647023", "media_type": "movie"},
@@ -85,8 +85,8 @@ POPULAR_DOUBAN_LISTS = [
     {"title": "豆瓣五星电影", "value": "515203"},
     {"title": "豆瓣高分科幻片", "value": "40435"},
     {"title": "豆瓣高分喜剧片", "value": "110522"},
-    {"title": "豆瓣高分爱情片", "value": "213727"},
-    {"title": "豆瓣高分悬疑片", "value": "172901"},
+    {"title": "IMDb TV Shows Top 250", "value": "213727", "media_type": "tv"},
+    {"title": "豆瓣五星电视剧", "value": "172901", "media_type": "tv"},
 ]
 
 
@@ -112,6 +112,7 @@ class CollectionSpec:
     list_id: Optional[str] = None
     items: List[Any] = field(default_factory=list)
     mode: Optional[str] = None
+    media_type: Optional[str] = None
 
 
 @dataclass
@@ -211,6 +212,8 @@ class SourceResolver:
                     list_id=list_id,
                     items=template_items,
                     mode=mode,
+                    media_type=str(item.get("media_type") or "").lower().strip()
+                    or None,
                 )
             )
         return specs
@@ -221,7 +224,9 @@ class SourceResolver:
         if spec.source_type == "tmdb_builtin":
             return self._fetch_tmdb_builtin(spec.list_id or "")
         if spec.source_type == "douban":
-            return self._fetch_douban_list(spec.url or spec.list_id or "")
+            return self._fetch_douban_list(
+                spec.url or spec.list_id or "", default_media_type=spec.media_type
+            )
         return self._parse_template(spec)
 
     @classmethod
@@ -437,7 +442,9 @@ class SourceResolver:
             return path
         return f"https://image.tmdb.org/t/p/w342/{path.lstrip('/')}"
 
-    def _fetch_douban_list(self, value: str) -> ResolvedSource:
+    def _fetch_douban_list(
+        self, value: str, default_media_type: Optional[str] = None
+    ) -> ResolvedSource:
         match = self._DOUBAN_LIST_RE.search(value)
         if not match:
             raise ValueError(f"无法从 {value!r} 提取豆瓣豆列 ID")
@@ -478,10 +485,15 @@ class SourceResolver:
                 if title_match:
                     title = self._clean_html(title_match.group(1))
 
-            page_items = self._parse_douban_page(page_html)
+            page_items = self._parse_douban_page(
+                page_html, media_type=default_media_type or "movie"
+            )
             if not page_items:
                 page_items = [
-                    MediaRef(media_type="movie", douban_id=subject_id)
+                    MediaRef(
+                        media_type=default_media_type or "movie",
+                        douban_id=subject_id,
+                    )
                     for subject_id in self._DOUBAN_SUBJECT_RE.findall(page_html)
                 ]
             new_count = 0
@@ -504,7 +516,9 @@ class SourceResolver:
         )
 
     @classmethod
-    def _parse_douban_page(cls, page_html: str) -> List[MediaRef]:
+    def _parse_douban_page(
+        cls, page_html: str, media_type: str = "movie"
+    ) -> List[MediaRef]:
         """Parse public doulist cards while retaining data useful for preview/fallback."""
 
         blocks = re.findall(
@@ -541,7 +555,7 @@ class SourceResolver:
             )
             result.append(
                 MediaRef(
-                    media_type="movie",
+                    media_type=media_type if media_type in {"movie", "tv"} else "movie",
                     douban_id=subject_match.group(1),
                     title=title,
                     year=int(year_match.group(1)) if year_match else None,

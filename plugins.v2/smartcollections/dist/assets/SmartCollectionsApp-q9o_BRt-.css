@@ -1,0 +1,59 @@
+
+.smart-page[data-v-31aade01] { width: 100%; max-width: 1680px; margin: 0 auto; overflow-x: hidden;
+}
+.source-card[data-v-31aade01] { transition: transform .18s ease, border-color .18s ease;
+}
+.source-card[data-v-31aade01]:hover { transform: translateY(-2px); border-color: rgb(var(--v-theme-primary));
+}
+.source-row[data-v-31aade01] { min-height: 68px;
+}
+.source-name[data-v-31aade01] { max-width: calc(100% - 285px);
+}
+.min-width-0[data-v-31aade01] { min-width: 0;
+}
+.collection-name[data-v-31aade01] { min-width: 230px; max-width: 360px;
+}
+.preview-heading[data-v-31aade01] { flex: 1 1 360px; min-width: 260px;
+}
+.preview-actions[data-v-31aade01] { flex: 1 1 680px; min-width: 0;
+}
+.preview-anchor[data-v-31aade01] { scroll-margin-top: 72px;
+}
+.preview-table[data-v-31aade01] { max-height: 650px; overflow: auto; border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); border-radius: 12px;
+}
+.poster[data-v-31aade01] { background: rgba(var(--v-theme-on-surface), .06);
+}
+.poster-clickable[data-v-31aade01] { cursor: zoom-in; transition: transform .16s ease;
+}
+.poster-clickable[data-v-31aade01]:hover { transform: scale(1.08);
+}
+.item-link[data-v-31aade01] { color: rgb(var(--v-theme-primary)); text-decoration: none;
+}
+.item-link[data-v-31aade01]:hover { text-decoration: underline;
+}
+.source-link[data-v-31aade01] { display: inline-flex; align-items: center; color: rgb(var(--v-theme-primary)); text-decoration: none; margin-top: 4px; word-break: break-all;
+}
+.source-link[data-v-31aade01]:hover { text-decoration: underline;
+}
+.emby-link[data-v-31aade01] { color: rgb(var(--v-theme-success)); text-decoration: none; font-weight: 600;
+}
+.emby-link[data-v-31aade01]:hover { text-decoration: underline;
+}
+@media (max-width: 700px) {
+.smart-page[data-v-31aade01] { padding-inline: 10px !important;
+}
+.page-header > div[data-v-31aade01]:first-child { min-width: 0; width: 100%;
+}
+.page-header .text-h4[data-v-31aade01] { font-size: 1.75rem !important;
+}
+.server-chip[data-v-31aade01] { max-width: calc(100vw - 76px);
+}
+.collection-name[data-v-31aade01] { min-width: 100%; max-width: none;
+}
+.preview-heading[data-v-31aade01], .preview-actions[data-v-31aade01] { flex-basis: 100%; min-width: 100%;
+}
+.source-row[data-v-31aade01] { flex-wrap: wrap;
+}
+.source-name[data-v-31aade01] { max-width: calc(100% - 105px);
+}
+}

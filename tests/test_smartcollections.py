@@ -3,6 +3,7 @@ import importlib.util
 import io
 import sys
 import tempfile
+import threading
 import types
 import unittest
 import zipfile
@@ -155,13 +156,14 @@ class SmartCollectionsTests(unittest.TestCase):
     def test_missing_item_subscription_uses_moviepilot_chain(self):
         source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
-        method = next(
+        methods = [
             node
             for item in tree.body
             if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
             for node in item.body
-            if isinstance(node, ast.FunctionDef) and node.name == "api_subscribe"
-        )
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {"api_subscribe", "_subscribe_item"}
+        ]
 
         class MediaType(Enum):
             MOVIE = "电影"
@@ -212,7 +214,7 @@ class SmartCollectionsTests(unittest.TestCase):
             "logger": FakeLogger(),
             "Body": lambda *args, **kwargs: None,
         }
-        method_source = ast.unparse(method)
+        method_source = "\n".join(ast.unparse(method) for method in methods)
         exec(
             "class Subject:\n"
             + "\n".join(f"    {line}" for line in method_source.splitlines()),
@@ -324,6 +326,8 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertEqual(items[0].title, "肖申克的救赎")
         self.assertEqual(items[0].year, 1994)
         self.assertEqual(items[0].poster_url, "https://img.example/poster.jpg")
+        tv_items = sources.SourceResolver._parse_douban_page(page, media_type="tv")
+        self.assertEqual(tv_items[0].media_type, "tv")
 
     def test_tmdb_and_template_items_keep_type_year_and_poster(self):
         items = sources.SourceResolver._tmdb_items(
@@ -364,6 +368,104 @@ class SmartCollectionsTests(unittest.TestCase):
             ),
             oscar["url"],
         )
+        tmdb_expected = {
+            "8648844": "戛纳电影节金棕榈奖",
+            "8648854": "威尼斯电影节金狮奖",
+        }
+        for list_id, title in tmdb_expected.items():
+            definition = next(
+                item
+                for item in sources.POPULAR_TMDB_LISTS
+                if item.get("list_id") == list_id
+            )
+            self.assertEqual(definition["title"], title)
+            self.assertEqual(
+                definition["url"], f"https://www.themoviedb.org/list/{list_id}"
+            )
+        douban_expected = {
+            "213727": "IMDb TV Shows Top 250",
+            "172901": "豆瓣五星电视剧",
+        }
+        for list_id, title in douban_expected.items():
+            definition = next(
+                item
+                for item in sources.POPULAR_DOUBAN_LISTS
+                if item.get("value") == list_id
+            )
+            self.assertEqual(definition["title"], title)
+            self.assertEqual(definition["media_type"], "tv")
+
+    def test_subscribe_missing_filters_preview_and_reports_progress(self):
+        source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        methods = {
+            node.name: node
+            for item in tree.body
+            if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
+            for node in item.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name
+            in {
+                "api_subscribe_missing",
+                "api_subscribe_missing_status",
+                "_run_subscribe_missing",
+            }
+        }
+
+        class FakeThread:
+            def __init__(self, target, args=(), **_options):
+                self.target = target
+                self.args = args
+
+            def start(self):
+                self.target(*self.args)
+
+        class FakeLogger:
+            def exception(self, *_args, **_kwargs):
+                pass
+
+        namespace = {
+            "Any": Any,
+            "Dict": Dict,
+            "List": list,
+            "Body": lambda *args, **kwargs: None,
+            "logger": FakeLogger(),
+            "threading": types.SimpleNamespace(Thread=FakeThread),
+        }
+        method_source = "\n".join(
+            ast.unparse(methods[name])
+            for name in (
+                "api_subscribe_missing_status",
+                "api_subscribe_missing",
+                "_run_subscribe_missing",
+            )
+        )
+        exec(
+            "class Subject:\n"
+            + "\n".join(f"    {line}" for line in method_source.splitlines()),
+            namespace,
+        )
+        subject = namespace["Subject"]()
+        subject._subscription_batch_lock = threading.Lock()
+        subject._subscription_batch_status_lock = threading.RLock()
+        subject._subscription_batch_status = {}
+        subject._get_preview = lambda _preview_id: {
+            "items": [
+                {"key": "movie:1", "matched": True, "tmdb_id": 1, "media_type": "movie", "title": "已有"},
+                {"key": "movie:2", "matched": False, "tmdb_id": 2, "media_type": "movie", "title": "缺失"},
+                {"key": "unknown:3", "matched": False, "tmdb_id": None, "media_type": None, "title": "不可订阅"},
+            ]
+        }
+        subject._subscribe_item = lambda item, background_search: {
+            "success": item.get("tmdb_id") == 2 and background_search is False
+        }
+        response = subject.api_subscribe_missing({"preview_id": "preview1"})
+        self.assertTrue(response["success"])
+        status = subject.api_subscribe_missing_status()["data"]
+        self.assertFalse(status["running"])
+        self.assertEqual(status["total"], 1)
+        self.assertEqual(status["subscribed"], 1)
+        self.assertEqual(status["result"]["subscribed_keys"], ["movie:2"])
 
     def test_emby_catalog_supports_exact_and_title_indexes(self):
         fake = FakeEmby()
@@ -485,6 +587,10 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertEqual(contained.size, (293, 439))
         self.assertTrue(
             (PLUGIN / "assets" / "fonts" / "ZCOOLXiaoWei-Regular.ttf").exists()
+        )
+        chinese_font = poster.CollectionPosterBuilder._font(72)
+        self.assertNotEqual(
+            bytes(chinese_font.getmask("电")), bytes(chinese_font.getmask("\uffff"))
         )
 
 

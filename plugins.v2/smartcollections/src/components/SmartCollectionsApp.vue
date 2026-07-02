@@ -30,6 +30,7 @@ const enlargedPoster = ref('')
 const enlargedPosterTitle = ref('')
 const subscribingKeys = ref([])
 const subscribedKeys = ref([])
+const bulkSubscriptionStatus = ref({ running: false, progress: 0, total: 0, subscribed: 0, failed: 0 })
 const posterDialog = ref(false)
 const posterCollection = ref(null)
 const posterFile = ref(null)
@@ -40,6 +41,9 @@ const selectedBackupId = ref('')
 const pluginBase = computed(() => `plugin/${props.pluginId || 'SmartCollections'}`)
 const sourceItems = computed(() => status.value.catalog?.[sourceTab.value] || [])
 const matchedItems = computed(() => (preview.value?.items || []).filter(item => item.matched))
+const missingSubscribableItems = computed(() => (preview.value?.items || []).filter(
+  item => !item.matched && item.tmdb_id && ['movie', 'tv'].includes(item.media_type) && !subscribedKeys.value.includes(item.key),
+))
 const visiblePreviewItems = computed(() => (preview.value?.items || []).slice(0, 300))
 const collectionTools = computed(() => status.value.collection_tools || {})
 const collectionInventory = computed(() => collectionTools.value.inventory || { total: 0, managed: 0, other: 0 })
@@ -67,6 +71,7 @@ async function loadStatus() {
   clearMessages()
   try {
     status.value = assertResponse(await props.api.get(`${pluginBase.value}/status`)) || status.value
+    bulkSubscriptionStatus.value = status.value.subscription_batch || bulkSubscriptionStatus.value
     const backups = status.value.collection_tools?.backups || []
     if (backups.length && !backups.some(item => item.id === selectedBackupId.value)) {
       selectedBackupId.value = backups[0].id
@@ -228,6 +233,14 @@ async function resyncCollection(collection) {
   }
 }
 
+async function previewCollection(collection) {
+  await runPreview({
+    ...(collection.source_spec || {}),
+    id: `collection:${collection.id}`,
+    name: collection.name,
+  })
+}
+
 async function deleteCollection(collection) {
   if (!window.confirm(`删除「${collection.name}」的管理记录及 Emby 合集？此操作不可撤销。`)) return
   clearMessages()
@@ -263,6 +276,40 @@ async function subscribeItem(item) {
     error.value = err?.message || '添加订阅失败'
   } finally {
     subscribingKeys.value = subscribingKeys.value.filter(key => key !== item.key)
+  }
+}
+
+async function waitForMissingSubscriptions() {
+  for (let attempt = 0; attempt < 3600; attempt += 1) {
+    const data = assertResponse(await props.api.get(`${pluginBase.value}/subscribe/missing/status`)) || {}
+    bulkSubscriptionStatus.value = data
+    if (!data.running) {
+      if (data.error) throw new Error(data.error)
+      const keys = data.result?.subscribed_keys || []
+      subscribedKeys.value = [...new Set([...subscribedKeys.value, ...keys])]
+      return data
+    }
+    await wait(1000)
+  }
+  throw new Error('一键订阅等待超时；任务可能仍在后台运行')
+}
+
+async function subscribeMissingItems() {
+  const count = missingSubscribableItems.value.length
+  if (!preview.value?.preview_id || !count) return
+  if (!window.confirm(`将使用 MoviePilot 默认订阅规则添加 ${count} 个缺失项目，并逐项启动搜索，继续吗？`)) return
+  actionLoading.value = 'subscribe-missing'
+  clearMessages()
+  try {
+    assertResponse(await props.api.post(`${pluginBase.value}/subscribe/missing`, {
+      preview_id: preview.value.preview_id,
+    }))
+    const result = await waitForMissingSubscriptions()
+    notice.value = result.message || `一键订阅完成：成功 ${result.subscribed || 0}，失败 ${result.failed || 0}`
+  } catch (err) {
+    error.value = err?.message || '一键订阅缺失项目失败'
+  } finally {
+    actionLoading.value = ''
   }
 }
 
@@ -448,20 +495,18 @@ onMounted(loadStatus)
               <VTab value="tmdb">TMDB 公开片单</VTab>
               <VTab value="douban">热门豆列</VTab>
             </VTabs>
-            <VRow>
-              <VCol v-for="source in sourceItems" :key="source.id" cols="12" sm="6" lg="4">
+            <VRow dense>
+              <VCol v-for="source in sourceItems" :key="source.id" cols="12" lg="6">
                 <VCard rounded="lg" variant="outlined" class="source-card h-100">
-                  <VCardText class="d-flex ga-3">
+                  <VCardText class="source-row d-flex align-center ga-3 pa-3">
                     <VCheckboxBtn v-model="selectedSources" :value="source.id" color="primary" />
-                    <VAvatar :color="sourceTab === 'douban' ? 'green' : 'blue'" variant="tonal" rounded="lg">
+                    <VAvatar :color="sourceTab === 'douban' ? 'green' : 'blue'" variant="tonal" rounded="lg" size="42">
                       <VIcon :icon="sourceTab === 'douban' ? 'mdi-alpha-d-box' : 'mdi-movie-open-star'" />
                     </VAvatar>
-                    <div class="flex-grow-1 min-width-0">
+                    <div class="source-name flex-grow-1 min-width-0">
                       <div class="font-weight-medium text-truncate">{{ source.name }}</div>
-                      <div class="text-caption text-medium-emphasis mt-1">{{ sourceTab === 'douban' ? `豆列 ${source.list_id}` : source.media_type === 'tv' ? '剧集片单' : '电影片单' }}</div>
+                      <div class="text-caption text-medium-emphasis">{{ sourceTab === 'douban' ? `豆列 ${source.list_id}` : source.media_type === 'tv' ? '剧集片单' : '电影片单' }}</div>
                     </div>
-                  </VCardText>
-                  <VCardActions class="px-4 pb-4">
                     <VBtn
                       v-if="source.url"
                       :href="source.url"
@@ -471,9 +516,8 @@ onMounted(loadStatus)
                       variant="text"
                       prepend-icon="mdi-open-in-new"
                     >来源</VBtn>
-                    <VSpacer />
                     <VBtn size="small" variant="tonal" prepend-icon="mdi-eye" :loading="actionLoading === `preview:${source.id}`" @click="runPreview(source)">预览匹配</VBtn>
-                  </VCardActions>
+                  </VCardText>
                 </VCard>
               </VCol>
             </VRow>
@@ -608,6 +652,7 @@ onMounted(loadStatus)
               </VCardText>
               <VCardActions class="flex-wrap">
                 <VBtn variant="tonal" prepend-icon="mdi-sync" :loading="actionLoading === `resync:${collection.id}`" @click="resyncCollection(collection)">重新同步</VBtn>
+                <VBtn variant="tonal" prepend-icon="mdi-eye" :loading="actionLoading === `preview:collection:${collection.id}`" @click="previewCollection(collection)">预览匹配</VBtn>
                 <VBtn variant="tonal" prepend-icon="mdi-image-edit" @click="openPosterManager(collection)">海报</VBtn>
                 <VSpacer />
                 <VBtn color="error" variant="text" prepend-icon="mdi-delete-outline" @click="deleteCollection(collection)">删除</VBtn>
@@ -621,20 +666,37 @@ onMounted(loadStatus)
 
     <div v-if="preview" ref="previewAnchor" class="preview-anchor pt-2">
       <VCard rounded="xl" variant="outlined" class="mt-4">
-        <VCardTitle class="d-flex flex-wrap align-center ga-3 pa-5">
-          <div class="flex-grow-1">
+        <VCardTitle class="preview-header d-flex flex-wrap align-center ga-3 pa-5">
+          <div class="preview-heading flex-grow-1">
             <div class="text-h6">{{ preview.title }}</div>
             <div class="text-body-2 text-medium-emphasis">共 {{ preview.total_count }} · 电影 {{ preview.movie_count }} · 剧集 {{ preview.tv_count }} · Emby 已有 {{ preview.matched_count }} · 缺失 {{ preview.missing_count }}</div>
             <a v-if="preview.source_url" :href="preview.source_url" target="_blank" rel="noopener" class="source-link text-caption">
               <VIcon icon="mdi-open-in-new" size="small" class="me-1" />{{ preview.source_url }}
             </a>
           </div>
-          <VTextField v-model="collectionName" label="合集名称" density="compact" hide-details class="collection-name" />
-          <VBtn color="success" prepend-icon="mdi-folder-plus" :disabled="!selectedPreviewKeys.length" :loading="actionLoading === 'sync-preview'" @click="syncPreview">同步至 Emby（{{ selectedPreviewKeys.length }}）</VBtn>
-          <VBtn color="primary" variant="tonal" prepend-icon="mdi-bookmark-plus" @click="openTemplateDialog">保存为模板</VBtn>
+          <div class="preview-actions d-flex flex-wrap align-center justify-end ga-3">
+            <VTextField v-model="collectionName" label="合集名称" density="compact" hide-details class="collection-name" />
+            <VBtn
+              color="warning"
+              variant="tonal"
+              prepend-icon="mdi-bell-plus-outline"
+              :disabled="!missingSubscribableItems.length || bulkSubscriptionStatus.running"
+              :loading="actionLoading === 'subscribe-missing'"
+              @click="subscribeMissingItems"
+            >一键订阅缺失项目（{{ missingSubscribableItems.length }}）</VBtn>
+            <VBtn color="success" prepend-icon="mdi-folder-plus" :disabled="!selectedPreviewKeys.length" :loading="actionLoading === 'sync-preview'" @click="syncPreview">同步至 Emby（{{ selectedPreviewKeys.length }}）</VBtn>
+            <VBtn color="primary" variant="tonal" prepend-icon="mdi-bookmark-plus" @click="openTemplateDialog">保存为模板</VBtn>
+          </div>
         </VCardTitle>
         <VDivider />
         <VCardText class="pa-4">
+          <VAlert v-if="bulkSubscriptionStatus.running" type="info" variant="tonal" class="mb-3">
+            <div class="d-flex justify-space-between text-body-2 mb-2">
+              <span>{{ bulkSubscriptionStatus.message }}</span>
+              <span>{{ bulkSubscriptionStatus.progress || 0 }}%</span>
+            </div>
+            <VProgressLinear :model-value="bulkSubscriptionStatus.progress || 0" color="primary" rounded height="7" />
+          </VAlert>
           <VRow class="mb-3">
             <VCol cols="6" md="3"><VCard color="blue" variant="tonal"><VCardText><div class="text-caption">列表总数</div><div class="text-h5">{{ preview.total_count }}</div></VCardText></VCard></VCol>
             <VCol cols="6" md="3"><VCard color="cyan" variant="tonal"><VCardText><div class="text-caption">电影 / 剧集</div><div class="text-h5">{{ preview.movie_count }} / {{ preview.tv_count }}</div></VCardText></VCard></VCol>
@@ -770,8 +832,12 @@ onMounted(loadStatus)
 .smart-page :deep(.v-card-title) { white-space: normal; }
 .source-card { transition: transform .18s ease, border-color .18s ease; }
 .source-card:hover { transform: translateY(-2px); border-color: rgb(var(--v-theme-primary)); }
+.source-row { min-height: 68px; }
+.source-name { max-width: calc(100% - 285px); }
 .min-width-0 { min-width: 0; }
 .collection-name { min-width: 230px; max-width: 360px; }
+.preview-heading { flex: 1 1 360px; min-width: 260px; }
+.preview-actions { flex: 1 1 680px; min-width: 0; }
 .preview-anchor { scroll-margin-top: 72px; }
 .preview-table { max-height: 650px; overflow: auto; border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); border-radius: 12px; }
 .poster { background: rgba(var(--v-theme-on-surface), .06); }
@@ -789,6 +855,11 @@ onMounted(loadStatus)
   .page-header .text-h4 { font-size: 1.75rem !important; }
   .server-chip { max-width: calc(100vw - 76px); }
   .collection-name { min-width: 100%; max-width: none; }
+  .preview-heading, .preview-actions { flex-basis: 100%; min-width: 100%; }
+  .preview-actions > .v-btn { flex: 1 1 180px; }
+  .source-row { flex-wrap: wrap; }
+  .source-name { max-width: calc(100% - 105px); }
+  .source-row > .v-btn { flex: 1 1 120px; }
   .smart-page :deep(.v-card-title) { padding: 16px !important; }
   .smart-page :deep(.v-card-title .v-btn) { flex: 1 1 auto; }
 }
