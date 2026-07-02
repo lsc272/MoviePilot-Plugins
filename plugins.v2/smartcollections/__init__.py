@@ -38,17 +38,35 @@ from .sources import (
 class SmartCollections(_PluginBase):
     _LEGACY_OSCAR_TITLE = "历届奥斯卡最佳动画长片及提名"
     _OSCAR_BEST_PICTURE_TITLE = "奥斯卡历届最佳影片"
-    _POSTER_VERSION = 2
+    _POSTER_VERSION = 3
     _LEGACY_CATALOG_TITLES = {
+        ("tmdb_builtin", "finly_golden_globes", "历届金球奖电影精选"): "金球奖最佳剧情片",
+        ("tmdb_builtin", "finly_bafta", "历届英国电影学院奖精选"): "英国电影学院奖最佳影片",
         ("tmdb_builtin", "finly_cannes", "戛纳电影节精选"): "戛纳电影节金棕榈奖",
         ("tmdb_builtin", "finly_venice", "威尼斯电影节精选"): "威尼斯电影节金狮奖",
+        ("tmdb_builtin", "finly_imdb_movies", "IMDb Top 250 电影"): "IMDb Top 250 Movies",
+        ("tmdb_builtin", "finly_imdb_tv", "IMDb Top 250 剧集"): "IMDb Top 250 TV Shows",
+        ("tmdb_builtin", "finly_letterboxd_500", "Letterboxd Top 500"): "Letterboxd's Top 500 Films",
+        ("tmdb_builtin", "finly_letterboxd_animation_250", "Letterboxd Top 250 动画长片"): "Letterboxd's Top 250 Animated Films",
+        ("tmdb_builtin", "finly_criterion", "Criterion Collection 精选"): "Criterion Collection",
+        ("douban", "240962", "豆瓣高分电影榜（上）9.7–8.6"): "★豆瓣高分电影榜★ （上）9.7-8.6分",
+        ("douban", "243559", "豆瓣高分电影榜（中）8.5–8.3"): "★豆瓣高分电影榜★ （中）8.5-8.3分",
+        ("douban", "248893", "豆瓣高分电影榜（下）8.2–8.0"): "★豆瓣高分电影榜★ （下）8.2-8.0分",
+        ("douban", "13922", "豆瓣冷门佳片（上）"): "【豆瓣冷门佳片】10-8.5分｜评分人数<5000",
+        ("douban", "249029", "豆瓣冷门佳片（下）"): "【豆瓣冷门佳片】8.4-8分｜评分人数<5000",
+        ("douban", "223781", "豆瓣高分动画长片"): "【豆瓣高分动画长片】",
+        ("douban", "30299", "豆瓣电影 Top 250"): "豆瓣电影【口碑榜】2023-09-11 更新",
+        ("douban", "515203", "豆瓣五星电影"): "历届奥斯卡最佳动画长片及提名",
+        ("douban", "40435", "豆瓣高分科幻片"): "值得一看的电影和美剧",
+        ("douban", "110522", "豆瓣高分喜剧片"): "有生之年一定要看的1001部电影",
         ("douban", "213727", "豆瓣高分爱情片"): "IMDb TV Shows Top 250",
-        ("douban", "172901", "豆瓣高分悬疑片"): "豆瓣五星电视剧",
+        ("douban", "172901", "豆瓣高分悬疑片"): "【豆瓣五星电视剧】(1/2)",
+        ("douban", "172901", "豆瓣五星电视剧"): "【豆瓣五星电视剧】(1/2)",
     }
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.3.3"
+    plugin_version = "0.3.4"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -1317,6 +1335,7 @@ class SmartCollections(_PluginBase):
                     "title": item["title"],
                     "url": item.get("url"),
                     "media_type": item.get("media_type"),
+                    "use_source_title": True,
                 }
                 for item in POPULAR_TMDB_LISTS
             ],
@@ -1329,6 +1348,7 @@ class SmartCollections(_PluginBase):
                     "title": item["title"],
                     "url": f"https://www.douban.com/doulist/{item['value']}/",
                     "media_type": item.get("media_type") or "movie",
+                    "use_source_title": True,
                 }
                 for item in POPULAR_DOUBAN_LISTS
             ],
@@ -1410,6 +1430,7 @@ class SmartCollections(_PluginBase):
             items=items,
             mode=mode,
             media_type=media_type,
+            use_source_title=bool(payload.get("use_source_title")),
         )
         if source_type == "template" and not items:
             raise ValueError("模板没有影视条目")
@@ -1485,7 +1506,11 @@ class SmartCollections(_PluginBase):
     ) -> Dict[str, Any]:
         context = context or self._preview_context()
         resolved = context["resolver"].fetch(spec)
-        title = spec.name or resolved.title or "未命名合集"
+        title = (
+            resolved.title
+            if spec.use_source_title and resolved.title
+            else spec.name or resolved.title or "未命名合集"
+        )
         rows: List[dict] = []
         for position, source_item in enumerate(resolved.items, start=1):
             converted = self._resolve_media_ref(source_item, context["douban_cache"])
@@ -1771,9 +1796,16 @@ class SmartCollections(_PluginBase):
         # Every managed collection keeps the source needed for scheduled resync.
         for record in self._load_managed_collections():
             try:
-                managed_spec = self._spec_from_payload(record.get("source_spec") or {})
-                managed_spec.name = str(record.get("name") or managed_spec.name or "").strip() or None
+                source_spec = record.get("source_spec") or {}
+                managed_spec = self._spec_from_payload(source_spec)
+                managed_name = self._migrate_catalog_title(
+                    str(source_spec.get("source_type") or ""),
+                    str(source_spec.get("list_id") or ""),
+                    str(record.get("name") or managed_spec.name or ""),
+                )
+                managed_spec.name = managed_name.strip() or None
                 managed_spec.mode = str(record.get("mode") or managed_spec.mode or "").strip() or None
+                managed_spec.use_source_title = False
                 specs.append(managed_spec)
             except Exception as exc:
                 logger.warning(
@@ -1789,6 +1821,7 @@ class SmartCollections(_PluginBase):
                     source_type="tmdb_builtin",
                     name=definition["title"],
                     list_id=list_key,
+                    use_source_title=True,
                 )
             )
 
@@ -1802,6 +1835,7 @@ class SmartCollections(_PluginBase):
                     name=definition["title"],
                     list_id=str(list_id),
                     media_type=definition.get("media_type") or "movie",
+                    use_source_title=True,
                 )
             )
 
@@ -1911,7 +1945,11 @@ class SmartCollections(_PluginBase):
         }
         try:
             resolved = resolver.fetch(spec)
-            collection_name = spec.name or resolved.title
+            collection_name = (
+                resolved.title
+                if spec.use_source_title and resolved.title
+                else spec.name or resolved.title
+            )
             if not collection_name:
                 raise ValueError("无法确定 Emby 合集名称，请在配置中填写 name")
             item_result["name"] = collection_name

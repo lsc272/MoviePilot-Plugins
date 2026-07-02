@@ -1,6 +1,6 @@
 import io
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Tuple
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
@@ -9,14 +9,13 @@ from app.utils.http import RequestUtils
 
 
 class CollectionPosterBuilder:
-    """Generate a cinematic collection poster without cropping source artwork."""
+    """Generate a cinematic collection poster from a tilted poster wall."""
 
     WIDTH = 1000
     HEIGHT = 1500
-    ART_HEIGHT = 1080
-    MARGIN = 54
-    GAP = 22
-    CARD_RADIUS = 28
+    CARD_RADIUS = 30
+    WALL_ANGLE = -13
+    TITLE_TRACKING = 2
     _FONT_DIR = Path(__file__).resolve().parent / "assets" / "fonts"
 
     @classmethod
@@ -25,22 +24,12 @@ class CollectionPosterBuilder:
         if not images:
             raise ValueError("片单中没有可用于生成合集海报的图片")
 
-        canvas = cls._background(images[0])
-        repeated = [images[index % len(images)] for index in range(4)]
-        card_width = (cls.WIDTH - cls.MARGIN * 2 - cls.GAP) // 2
-        card_height = (cls.ART_HEIGHT - cls.MARGIN * 2 - cls.GAP) // 2
-
-        for index, image in enumerate(repeated):
-            x = cls.MARGIN + (index % 2) * (card_width + cls.GAP)
-            y = cls.MARGIN + (index // 2) * (card_height + cls.GAP)
-            cls._paste_card(canvas, image, (x, y), (card_width, card_height))
-
-        cls._apply_vertical_gradient(
+        canvas = cls._poster_wall(images)
+        cls._apply_bottom_up_gradient(
             canvas,
             start_y=720,
-            start_alpha=0,
-            end_alpha=246,
-            color=(7, 10, 18),
+            bottom_alpha=252,
+            color=(240, 243, 248),
         )
         cls._draw_title(canvas, str(title or "智能合集"))
 
@@ -65,13 +54,43 @@ class CollectionPosterBuilder:
             raise ValueError("上传文件不是有效图片") from exc
 
     @classmethod
-    def _background(cls, image: Image.Image) -> Image.Image:
-        background = cls._cover(image, cls.WIDTH, cls.HEIGHT)
-        background = background.filter(ImageFilter.GaussianBlur(54))
-        background = ImageEnhance.Color(background).enhance(0.68)
-        background = ImageEnhance.Brightness(background).enhance(0.30).convert("RGBA")
-        tint = Image.new("RGBA", background.size, (10, 14, 27, 112))
-        return Image.alpha_composite(background, tint)
+    def _poster_wall(cls, images: List[Image.Image]) -> Image.Image:
+        """Build a staggered, gently tilted wall of full-bleed posters."""
+
+        wall_width = 1390
+        wall_height = 1900
+        card_width = 250
+        card_height = 375
+        gap_x = 26
+        gap_y = 26
+        column_offsets = (20, -145, -55, -205, -105)
+        background = (226, 230, 237, 255)
+        wall = Image.new("RGBA", (wall_width, wall_height), background)
+        repeated = [images[index % len(images)] for index in range(25)]
+
+        for index, image in enumerate(repeated):
+            column = index % 5
+            row = index // 5
+            x = 18 + column * (card_width + gap_x)
+            y = -120 + row * (card_height + gap_y) + column_offsets[column]
+            cls._paste_card(
+                wall,
+                image,
+                (x, y),
+                (card_width, card_height),
+            )
+
+        rotated = wall.rotate(
+            cls.WALL_ANGLE,
+            resample=Image.Resampling.BICUBIC,
+            expand=True,
+            fillcolor=background,
+        )
+        left = max(0, (rotated.width - cls.WIDTH) // 2)
+        top = max(0, (rotated.height - cls.HEIGHT) // 2 - 60)
+        cropped = rotated.crop((left, top, left + cls.WIDTH, top + cls.HEIGHT))
+        cropped = ImageEnhance.Color(cropped).enhance(1.08)
+        return ImageEnhance.Contrast(cropped).enhance(1.03)
 
     @classmethod
     def _paste_card(
@@ -87,14 +106,14 @@ class CollectionPosterBuilder:
         shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
         shadow_draw = ImageDraw.Draw(shadow)
         shadow_draw.rounded_rectangle(
-            (x + 4, y + 12, x + width + 4, y + height + 12),
+            (x + 5, y + 10, x + width + 5, y + height + 10),
             radius=cls.CARD_RADIUS + 2,
-            fill=(0, 0, 0, 170),
+            fill=(32, 39, 52, 82),
         )
-        shadow = shadow.filter(ImageFilter.GaussianBlur(16))
+        shadow = shadow.filter(ImageFilter.GaussianBlur(12))
         canvas.alpha_composite(shadow)
 
-        panel = cls._panel(image, width, height)
+        panel = cls._cover(image.convert("RGB"), width, height).convert("RGBA")
         mask = Image.new("L", (width, height), 0)
         ImageDraw.Draw(mask).rounded_rectangle(
             (0, 0, width - 1, height - 1),
@@ -107,133 +126,75 @@ class CollectionPosterBuilder:
         border.rounded_rectangle(
             (x, y, x + width - 1, y + height - 1),
             radius=cls.CARD_RADIUS,
-            outline=(231, 206, 158, 105),
-            width=2,
+            outline=(255, 255, 255, 118),
+            width=1,
         )
-
-    @classmethod
-    def _panel(cls, image: Image.Image, width: int, height: int) -> Image.Image:
-        """Use a softened fill behind a fully visible, contained poster."""
-
-        panel = cls._cover(image, width, height)
-        panel = panel.filter(ImageFilter.GaussianBlur(22))
-        panel = ImageEnhance.Color(panel).enhance(0.74)
-        panel = ImageEnhance.Brightness(panel).enhance(0.48).convert("RGBA")
-        panel = Image.alpha_composite(
-            panel, Image.new("RGBA", panel.size, (6, 9, 16, 72))
-        )
-
-        foreground = cls._contain(image, width - 28, height - 28).convert("RGBA")
-        fx = (width - foreground.width) // 2
-        fy = (height - foreground.height) // 2
-
-        foreground_shadow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        shadow_draw = ImageDraw.Draw(foreground_shadow)
-        shadow_draw.rounded_rectangle(
-            (fx + 6, fy + 8, fx + foreground.width + 6, fy + foreground.height + 8),
-            radius=16,
-            fill=(0, 0, 0, 150),
-        )
-        foreground_shadow = foreground_shadow.filter(ImageFilter.GaussianBlur(12))
-        panel = Image.alpha_composite(panel, foreground_shadow)
-
-        foreground_mask = Image.new("L", foreground.size, 0)
-        ImageDraw.Draw(foreground_mask).rounded_rectangle(
-            (0, 0, foreground.width - 1, foreground.height - 1),
-            radius=14,
-            fill=255,
-        )
-        panel.paste(foreground, (fx, fy), foreground_mask)
-        return panel
 
     @classmethod
     def _draw_title(cls, canvas: Image.Image, title: str) -> None:
         draw = ImageDraw.Draw(canvas)
-        accent = (215, 184, 124, 230)
-        label_font = cls._font(28)
-        label = "S M A R T   C O L L E C T I O N"
-        label_box = draw.textbbox((0, 0), label, font=label_font)
-        label_width = label_box[2] - label_box[0]
-        label_y = 1144
-        draw.line((118, label_y - 30, 882, label_y - 30), fill=(215, 184, 124, 115), width=2)
-        draw.text(
-            ((cls.WIDTH - label_width) // 2, label_y),
-            label,
-            font=label_font,
-            fill=accent,
-        )
-
         font, lines, line_height = cls._fit_title(draw, title)
         total_height = line_height * len(lines)
-        title_y = 1210 + max(0, (245 - total_height) // 2)
+        title_y = cls.HEIGHT - 92 - total_height
 
-        text_mask = Image.new("L", canvas.size, 0)
-        mask_draw = ImageDraw.Draw(text_mask)
-        shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-        shadow_draw = ImageDraw.Draw(shadow)
+        # A short hairline gives the title a deliberate visual anchor without
+        # adding another label or forcing artificial weight onto the glyphs.
+        draw.rounded_rectangle(
+            (72, title_y - 36, 146, title_y - 30),
+            radius=3,
+            fill=(53, 61, 75, 205),
+        )
         for index, line in enumerate(lines):
-            box = mask_draw.textbbox((0, 0), line, font=font)
-            width = box[2] - box[0]
-            x = (cls.WIDTH - width) // 2
             y = title_y + index * line_height
-            shadow_draw.text(
-                (x + 3, y + 7),
+            cls._draw_text_with_tracking(
+                draw,
+                (72, y),
                 line,
-                font=font,
-                fill=(0, 0, 0, 205),
-                stroke_width=2,
-                stroke_fill=(0, 0, 0, 170),
+                font,
+                fill=(30, 36, 48, 255),
+                tracking=cls.TITLE_TRACKING,
             )
-            mask_draw.text((x, y), line, font=font, fill=255)
-        shadow = shadow.filter(ImageFilter.GaussianBlur(5))
-        canvas.alpha_composite(shadow)
-
-        title_fill = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-        fill_pixels = title_fill.load()
-        top = max(0, title_y)
-        bottom = min(cls.HEIGHT, title_y + total_height)
-        span = max(1, bottom - top)
-        for y in range(top, bottom):
-            progress = (y - top) / span
-            color = (
-                round(251 - 35 * progress),
-                round(247 - 56 * progress),
-                round(235 - 92 * progress),
-                255,
-            )
-            for x in range(cls.WIDTH):
-                fill_pixels[x, y] = color
-        canvas.alpha_composite(Image.composite(title_fill, Image.new("RGBA", canvas.size), text_mask))
 
     @classmethod
     def _fit_title(
         cls, draw: ImageDraw.ImageDraw, title: str
     ) -> Tuple[ImageFont.ImageFont, List[str], int]:
         value = title.strip() or "智能合集"
-        for size in range(86, 49, -4):
+
+        # Prefer a calm single-line lockup when the title can fit at a useful
+        # display size. Long titles only move to two lines after this pass.
+        for size in range(90, 55, -4):
             font = cls._font(size)
             lines = cls._wrap_text(draw, value, font, 850)
             line_height = size + 22
-            if len(lines) <= 3 and len(lines) * line_height <= 255:
+            if len(lines) == 1:
                 return font, lines, line_height
-        font = cls._font(50)
-        return font, cls._wrap_text(draw, value, font, 850)[:3], 68
+
+        for size in range(78, 55, -4):
+            font = cls._font(size)
+            lines = cls._wrap_text(draw, value, font, 850)
+            line_height = size + 22
+            if len(lines) <= 2 and len(lines) * line_height <= 240:
+                return font, lines, line_height
+        font = cls._font(56)
+        return font, cls._wrap_text(draw, value, font, 850)[:2], 74
 
     @classmethod
-    def _apply_vertical_gradient(
+    def _apply_bottom_up_gradient(
         cls,
         canvas: Image.Image,
         start_y: int,
-        start_alpha: int,
-        end_alpha: int,
+        bottom_alpha: int,
         color: Tuple[int, int, int],
     ) -> None:
+        """Fade an opaque bottom wash upward into the poster wall."""
+
         overlay = Image.new("RGBA", canvas.size, (*color, 0))
         pixels = overlay.load()
         span = max(1, cls.HEIGHT - start_y)
         for y in range(max(0, start_y), cls.HEIGHT):
             progress = (y - start_y) / span
-            alpha = round(start_alpha + (end_alpha - start_alpha) * progress)
+            alpha = round(bottom_alpha * (progress**1.45))
             for x in range(cls.WIDTH):
                 pixels[x, y] = (*color, alpha)
         canvas.alpha_composite(overlay)
@@ -256,7 +217,7 @@ class CollectionPosterBuilder:
                     images.append(image.convert("RGB"))
             except Exception:
                 continue
-            if len(images) >= 4:
+            if len(images) >= 12:
                 break
         return images
 
@@ -285,7 +246,9 @@ class CollectionPosterBuilder:
     @classmethod
     def _font(cls, size: int) -> ImageFont.ImageFont:
         candidates = [
-            cls._FONT_DIR / "ZCOOLXiaoWei-Regular.ttf",
+            cls._FONT_DIR / "NotoSansCJKsc-Medium.otf",
+            Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Medium.ttc"),
+            Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
             Path("/usr/share/fonts/opentype/noto/NotoSerifCJK-SemiBold.ttc"),
             Path("/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc"),
             Path("/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf"),
@@ -326,7 +289,8 @@ class CollectionPosterBuilder:
         for char in text.strip():
             candidate = f"{current}{char}"
             try:
-                width = draw.textbbox((0, 0), candidate, font=font)[2]
+                box = draw.textbbox((0, 0), candidate, font=font)
+                width = box[2] - box[0] + max(0, len(candidate) - 1) * cls.TITLE_TRACKING
             except Exception:
                 width = len(candidate) * 40
             if current and width > max_width:
@@ -337,3 +301,20 @@ class CollectionPosterBuilder:
         if current:
             lines.append(current)
         return lines or ["智能合集"]
+
+    @staticmethod
+    def _draw_text_with_tracking(
+        draw: ImageDraw.ImageDraw,
+        position: Tuple[int, int],
+        text: str,
+        font: ImageFont.ImageFont,
+        fill: Tuple[int, int, int, int],
+        tracking: int,
+    ) -> None:
+        """Draw display text with restrained spacing instead of fake bolding."""
+
+        x, y = position
+        for char in text:
+            draw.text((x, y), char, font=font, fill=fill)
+            box = draw.textbbox((x, y), char, font=font)
+            x += box[2] - box[0] + tracking

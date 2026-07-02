@@ -54,16 +54,16 @@ POPULAR_TMDB_LISTS = [
     # Keep the historical value for saved configurations; the old display title
     # incorrectly described TMDB List 8648843 as an animated-feature list.
     {"title": "奥斯卡历届最佳影片", "value": "finly_oscars_animation", "list_id": "8648843", "media_type": "movie"},
-    {"title": "历届金球奖电影精选", "value": "finly_golden_globes", "list_id": "8648849", "media_type": "movie"},
-    {"title": "历届英国电影学院奖精选", "value": "finly_bafta", "list_id": "8648848", "media_type": "movie"},
+    {"title": "金球奖最佳剧情片", "value": "finly_golden_globes", "list_id": "8648849", "media_type": "movie"},
+    {"title": "英国电影学院奖最佳影片", "value": "finly_bafta", "list_id": "8648848", "media_type": "movie"},
     {"title": "戛纳电影节金棕榈奖", "value": "finly_cannes", "list_id": "8648844", "media_type": "movie"},
     {"title": "威尼斯电影节金狮奖", "value": "finly_venice", "list_id": "8648854", "media_type": "movie"},
-    {"title": "IMDb Top 250 电影", "value": "finly_imdb_movies", "list_id": "8647021", "media_type": "movie"},
-    {"title": "IMDb Top 250 剧集", "value": "finly_imdb_tv", "list_id": "8647022", "media_type": "tv"},
+    {"title": "IMDb Top 250 Movies", "value": "finly_imdb_movies", "list_id": "8647021", "media_type": "movie"},
+    {"title": "IMDb Top 250 TV Shows", "value": "finly_imdb_tv", "list_id": "8647022", "media_type": "tv"},
     {"title": "豆瓣电影 Top 250", "value": "finly_douban_top250", "list_id": "8647023", "media_type": "movie"},
-    {"title": "Letterboxd Top 500", "value": "finly_letterboxd_500", "list_id": "8648802", "media_type": "movie"},
-    {"title": "Letterboxd Top 250 动画长片", "value": "finly_letterboxd_animation_250", "list_id": "8649225", "media_type": "movie"},
-    {"title": "Criterion Collection 精选", "value": "finly_criterion", "list_id": "8649108", "media_type": "movie"},
+    {"title": "Letterboxd's Top 500 Films", "value": "finly_letterboxd_500", "list_id": "8648802", "media_type": "movie"},
+    {"title": "Letterboxd's Top 250 Animated Films", "value": "finly_letterboxd_animation_250", "list_id": "8649225", "media_type": "movie"},
+    {"title": "Criterion Collection", "value": "finly_criterion", "list_id": "8649108", "media_type": "movie"},
 ]
 
 
@@ -75,18 +75,18 @@ for _definition in POPULAR_TMDB_LISTS:
 
 
 POPULAR_DOUBAN_LISTS = [
-    {"title": "豆瓣高分电影榜（上）9.7–8.6", "value": "240962"},
-    {"title": "豆瓣高分电影榜（中）8.5–8.3", "value": "243559"},
-    {"title": "豆瓣高分电影榜（下）8.2–8.0", "value": "248893"},
-    {"title": "豆瓣冷门佳片（上）", "value": "13922"},
-    {"title": "豆瓣冷门佳片（下）", "value": "249029"},
-    {"title": "豆瓣高分动画长片", "value": "223781"},
-    {"title": "豆瓣电影 Top 250", "value": "30299"},
-    {"title": "豆瓣五星电影", "value": "515203"},
-    {"title": "豆瓣高分科幻片", "value": "40435"},
-    {"title": "豆瓣高分喜剧片", "value": "110522"},
+    {"title": "★豆瓣高分电影榜★ （上）9.7-8.6分", "value": "240962"},
+    {"title": "★豆瓣高分电影榜★ （中）8.5-8.3分", "value": "243559"},
+    {"title": "★豆瓣高分电影榜★ （下）8.2-8.0分", "value": "248893"},
+    {"title": "【豆瓣冷门佳片】10-8.5分｜评分人数<5000", "value": "13922"},
+    {"title": "【豆瓣冷门佳片】8.4-8分｜评分人数<5000", "value": "249029"},
+    {"title": "【豆瓣高分动画长片】", "value": "223781"},
+    {"title": "豆瓣电影【口碑榜】2023-09-11 更新", "value": "30299"},
+    {"title": "历届奥斯卡最佳动画长片及提名", "value": "515203"},
+    {"title": "值得一看的电影和美剧", "value": "40435"},
+    {"title": "有生之年一定要看的1001部电影", "value": "110522"},
     {"title": "IMDb TV Shows Top 250", "value": "213727", "media_type": "tv"},
-    {"title": "豆瓣五星电视剧", "value": "172901", "media_type": "tv"},
+    {"title": "【豆瓣五星电视剧】(1/2)", "value": "172901", "media_type": "tv"},
 ]
 
 
@@ -113,6 +113,7 @@ class CollectionSpec:
     items: List[Any] = field(default_factory=list)
     mode: Optional[str] = None
     media_type: Optional[str] = None
+    use_source_title: bool = False
 
 
 @dataclass
@@ -214,6 +215,7 @@ class SourceResolver:
                     mode=mode,
                     media_type=str(item.get("media_type") or "").lower().strip()
                     or None,
+                    use_source_title=bool(item.get("use_source_title")),
                 )
             )
         return specs
@@ -288,9 +290,7 @@ class SourceResolver:
             raise ValueError(f"未知的热门 TMDB 片单：{list_key}")
 
         if definition.get("list_id"):
-            resolved = self._fetch_tmdb_list(str(definition["list_id"]))
-            resolved.title = definition["title"]
-            return resolved
+            return self._fetch_tmdb_list(str(definition["list_id"]))
 
         domain = settings.TMDB_API_DOMAIN or "api.themoviedb.org"
         url = f"https://{domain}{definition['path']}"

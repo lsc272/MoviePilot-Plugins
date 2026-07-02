@@ -354,12 +354,6 @@ class SmartCollectionsTests(unittest.TestCase):
         )
         self.assertEqual(oscar["title"], "奥斯卡历届最佳影片")
         self.assertEqual(oscar["url"], "https://www.themoviedb.org/list/8648843")
-        animation = next(
-            item
-            for item in sources.POPULAR_TMDB_LISTS
-            if item.get("list_id") == "8649225"
-        )
-        self.assertIn("动画长片", animation["title"])
         self.assertEqual(
             sources.SourceResolver.source_url(
                 sources.CollectionSpec(
@@ -369,8 +363,17 @@ class SmartCollectionsTests(unittest.TestCase):
             oscar["url"],
         )
         tmdb_expected = {
+            "8648843": "奥斯卡历届最佳影片",
+            "8648849": "金球奖最佳剧情片",
+            "8648848": "英国电影学院奖最佳影片",
             "8648844": "戛纳电影节金棕榈奖",
             "8648854": "威尼斯电影节金狮奖",
+            "8647021": "IMDb Top 250 Movies",
+            "8647022": "IMDb Top 250 TV Shows",
+            "8647023": "豆瓣电影 Top 250",
+            "8648802": "Letterboxd's Top 500 Films",
+            "8649225": "Letterboxd's Top 250 Animated Films",
+            "8649108": "Criterion Collection",
         }
         for list_id, title in tmdb_expected.items():
             definition = next(
@@ -383,8 +386,18 @@ class SmartCollectionsTests(unittest.TestCase):
                 definition["url"], f"https://www.themoviedb.org/list/{list_id}"
             )
         douban_expected = {
+            "240962": "★豆瓣高分电影榜★ （上）9.7-8.6分",
+            "243559": "★豆瓣高分电影榜★ （中）8.5-8.3分",
+            "248893": "★豆瓣高分电影榜★ （下）8.2-8.0分",
+            "13922": "【豆瓣冷门佳片】10-8.5分｜评分人数<5000",
+            "249029": "【豆瓣冷门佳片】8.4-8分｜评分人数<5000",
+            "223781": "【豆瓣高分动画长片】",
+            "30299": "豆瓣电影【口碑榜】2023-09-11 更新",
+            "515203": "历届奥斯卡最佳动画长片及提名",
+            "40435": "值得一看的电影和美剧",
+            "110522": "有生之年一定要看的1001部电影",
             "213727": "IMDb TV Shows Top 250",
-            "172901": "豆瓣五星电视剧",
+            "172901": "【豆瓣五星电视剧】(1/2)",
         }
         for list_id, title in douban_expected.items():
             definition = next(
@@ -393,7 +406,22 @@ class SmartCollectionsTests(unittest.TestCase):
                 if item.get("value") == list_id
             )
             self.assertEqual(definition["title"], title)
-            self.assertEqual(definition["media_type"], "tv")
+        self.assertEqual(
+            next(
+                item
+                for item in sources.POPULAR_DOUBAN_LISTS
+                if item["value"] == "213727"
+            )["media_type"],
+            "tv",
+        )
+        resolver = sources.SourceResolver(tmdb_token="test")
+        with patch.object(
+            resolver,
+            "_fetch_tmdb_list",
+            return_value=sources.ResolvedSource(title="来源实时标题", items=[]),
+        ):
+            resolved = resolver._fetch_tmdb_builtin("finly_golden_globes")
+        self.assertEqual(resolved.title, "来源实时标题")
 
     def test_subscribe_missing_filters_preview_and_reports_progress(self):
         source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
@@ -581,16 +609,27 @@ class SmartCollectionsTests(unittest.TestCase):
             content = poster.CollectionPosterBuilder.generate("测试智能合集", ["a", "b"])
         with Image.open(io.BytesIO(content)) as image:
             self.assertEqual(image.size, (1000, 1500))
+            self.assertGreater(
+                sum(image.getpixel((500, 1450))),
+                sum(image.getpixel((500, 500))),
+            )
         normalized = poster.CollectionPosterBuilder.normalize_upload(content)
         self.assertTrue(normalized.startswith(b"\xff\xd8"))
         contained = poster.CollectionPosterBuilder._contain(source_images[0], 407, 439)
         self.assertEqual(contained.size, (293, 439))
         self.assertTrue(
-            (PLUGIN / "assets" / "fonts" / "ZCOOLXiaoWei-Regular.ttf").exists()
+            (PLUGIN / "assets" / "fonts" / "NotoSansCJKsc-Medium.otf").exists()
+        )
+        self.assertTrue(
+            (PLUGIN / "assets" / "fonts" / "NotoSansCJK-LICENSE.txt").exists()
         )
         chinese_font = poster.CollectionPosterBuilder._font(72)
         self.assertNotEqual(
             bytes(chinese_font.getmask("电")), bytes(chinese_font.getmask("\uffff"))
+        )
+        self.assertNotIn(
+            "SMART COLLECTION",
+            (PLUGIN / "poster.py").read_text(encoding="utf-8"),
         )
 
 
