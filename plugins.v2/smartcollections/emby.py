@@ -83,7 +83,11 @@ class EmbyCollectionClient:
 
     @staticmethod
     def normalize_title(value: Any) -> str:
-        return re.sub(r"[^0-9a-z\u4e00-\u9fff]+", "", str(value or "").lower())
+        return re.sub(
+            r"[^0-9a-z\u3400-\u9fff\uac00-\ud7af]+",
+            "",
+            str(value or "").lower(),
+        )
 
     @staticmethod
     def _safe_year(value: Any) -> Optional[int]:

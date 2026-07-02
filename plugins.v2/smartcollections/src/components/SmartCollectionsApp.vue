@@ -44,7 +44,7 @@ const matchedItems = computed(() => (preview.value?.items || []).filter(item => 
 const missingSubscribableItems = computed(() => (preview.value?.items || []).filter(
   item => !item.matched && item.tmdb_id && ['movie', 'tv'].includes(item.media_type) && !subscribedKeys.value.includes(item.key),
 ))
-const visiblePreviewItems = computed(() => (preview.value?.items || []).slice(0, 300))
+const visiblePreviewItems = computed(() => (preview.value?.items || []).slice(0, 500))
 const collectionTools = computed(() => status.value.collection_tools || {})
 const collectionInventory = computed(() => collectionTools.value.inventory || { total: 0, managed: 0, other: 0 })
 const backupOptions = computed(() => (collectionTools.value.backups || []).map(item => ({
@@ -674,7 +674,7 @@ onMounted(loadStatus)
         <VCardTitle class="preview-header d-flex flex-wrap align-center ga-3 pa-5">
           <div class="preview-heading flex-grow-1">
             <div class="text-h6">{{ preview.title }}</div>
-            <div class="text-body-2 text-medium-emphasis">共 {{ preview.total_count }} · 电影 {{ preview.movie_count }} · 剧集 {{ preview.tv_count }} · Emby 已有 {{ preview.matched_count }} · 缺失 {{ preview.missing_count }}</div>
+            <div class="text-body-2 text-medium-emphasis">共 {{ preview.total_count }} · 电影 {{ preview.movie_count }} · 剧集 {{ preview.tv_count }} · Emby 已有 {{ preview.matched_count }} · 缺失 {{ preview.missing_count }} · 可订阅 {{ missingSubscribableItems.length }} · 待识别 {{ preview.unresolved_count || 0 }}</div>
             <a v-if="preview.source_url" :href="preview.source_url" target="_blank" rel="noopener" class="source-link text-caption">
               <VIcon icon="mdi-open-in-new" size="small" class="me-1" />{{ preview.source_url }}
             </a>
@@ -702,6 +702,9 @@ onMounted(loadStatus)
             </div>
             <VProgressLinear :model-value="bulkSubscriptionStatus.progress || 0" color="primary" rounded height="7" />
           </VAlert>
+          <VAlert v-if="preview.unavailable_count" type="warning" variant="tonal" class="mb-3">
+            来源页面标称 {{ preview.source_reported_total }} 个条目，但公开页面实际只返回 {{ preview.total_count }} 个；另有 {{ preview.unavailable_count }} 个条目可能已删除、失效或仅创建者可见。
+          </VAlert>
           <VRow class="mb-3">
             <VCol cols="6" md="3"><VCard color="blue" variant="tonal"><VCardText><div class="text-caption">列表总数</div><div class="text-h5">{{ preview.total_count }}</div></VCardText></VCard></VCol>
             <VCol cols="6" md="3"><VCard color="cyan" variant="tonal"><VCardText><div class="text-caption">电影 / 剧集</div><div class="text-h5">{{ preview.movie_count }} / {{ preview.tv_count }}</div></VCardText></VCard></VCol>
@@ -727,9 +730,11 @@ onMounted(loadStatus)
                   </td>
                   <td><VChip :color="item.matched ? 'success' : 'default'" size="small" variant="tonal">{{ item.matched ? '已匹配' : '缺失' }}</VChip></td>
                   <td>
-                    <a v-if="tmdbLink(item)" :href="tmdbLink(item)" target="_blank" class="item-link">{{ item.title }}</a><span v-else>{{ item.title }}</span>
+                    <a v-if="item.matched && item.emby_url" :href="item.emby_url" target="_blank" rel="noopener" class="emby-link">{{ item.title }}</a>
+                    <a v-else-if="tmdbLink(item)" :href="tmdbLink(item)" target="_blank" rel="noopener" class="item-link">{{ item.title }}</a>
+                    <span v-else>{{ item.title }}</span>
                     <span class="text-medium-emphasis"> {{ item.year ? `(${item.year})` : '' }}</span>
-                    <VChip size="x-small" class="ms-2">{{ item.media_type === 'tv' ? '剧集' : '电影' }}</VChip>
+                    <VChip size="x-small" class="ms-2">{{ item.media_type === 'tv' ? '剧集' : item.media_type === 'movie' ? '电影' : '未知' }}</VChip>
                     <VBtn
                       v-if="!item.matched && item.tmdb_id"
                       size="x-small"
@@ -752,7 +757,7 @@ onMounted(loadStatus)
               </tbody>
             </VTable>
           </div>
-          <VAlert v-if="preview.items?.length > 300" type="info" variant="tonal" class="mt-3">页面只展示前 300 条；同步仍会处理全部条目。</VAlert>
+          <VAlert v-if="preview.items?.length > 500" type="info" variant="tonal" class="mt-3">页面只展示前 500 条；同步和一键订阅仍会处理全部条目。</VAlert>
         </VCardText>
       </VCard>
     </div>
