@@ -38,10 +38,17 @@ from .sources import (
 class SmartCollections(_PluginBase):
     _LEGACY_OSCAR_TITLE = "历届奥斯卡最佳动画长片及提名"
     _OSCAR_BEST_PICTURE_TITLE = "奥斯卡历届最佳影片"
+    _POSTER_VERSION = 2
+    _LEGACY_CATALOG_TITLES = {
+        ("tmdb_builtin", "finly_cannes", "戛纳电影节精选"): "戛纳电影节金棕榈奖",
+        ("tmdb_builtin", "finly_venice", "威尼斯电影节精选"): "威尼斯电影节金狮奖",
+        ("douban", "213727", "豆瓣高分爱情片"): "IMDb TV Shows Top 250",
+        ("douban", "172901", "豆瓣高分悬疑片"): "豆瓣五星电视剧",
+    }
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.3.2"
+    plugin_version = "0.3.3"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -83,6 +90,18 @@ class SmartCollections(_PluginBase):
             "result": None,
             "error": None,
             "inventory": None,
+        }
+        self._subscription_batch_lock = threading.Lock()
+        self._subscription_batch_status_lock = threading.RLock()
+        self._subscription_batch_status: Dict[str, Any] = {
+            "running": False,
+            "progress": 0,
+            "message": "",
+            "total": 0,
+            "subscribed": 0,
+            "failed": 0,
+            "result": None,
+            "error": None,
         }
 
     def init_plugin(self, config: dict = None):
@@ -266,6 +285,20 @@ class SmartCollections(_PluginBase):
                 "methods": ["POST"],
                 "auth": "bear",
                 "summary": "订阅缺失影视",
+            },
+            {
+                "path": "/subscribe/missing",
+                "endpoint": self.api_subscribe_missing,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "后台批量订阅预览中的缺失影视",
+            },
+            {
+                "path": "/subscribe/missing/status",
+                "endpoint": self.api_subscribe_missing_status,
+                "methods": ["GET"],
+                "auth": "bear",
+                "summary": "查询批量订阅进度",
             },
             {
                 "path": "/collections/poster/auto",
@@ -632,11 +665,11 @@ class SmartCollections(_PluginBase):
         for item in self._load_managed_collections():
             record = dict(item)
             source_spec = record.get("source_spec") or {}
-            if (
-                str(source_spec.get("list_id") or "") == "finly_oscars_animation"
-                and record.get("name") == self._LEGACY_OSCAR_TITLE
-            ):
-                record["name"] = self._OSCAR_BEST_PICTURE_TITLE
+            record["name"] = self._migrate_catalog_title(
+                str(source_spec.get("source_type") or ""),
+                str(source_spec.get("list_id") or ""),
+                str(record.get("name") or ""),
+            )
             if not record.get("source_url"):
                 try:
                     record["source_url"] = SourceResolver.source_url(
@@ -654,6 +687,7 @@ class SmartCollections(_PluginBase):
                 "collection_tools": self._collection_tools_snapshot(
                     refresh_inventory=True
                 ),
+                "subscription_batch": self.api_subscribe_missing_status()["data"],
                 "history": self.get_data("history") or [],
                 "running": self._run_lock.locked(),
                 "server": self._emby_server,
@@ -825,9 +859,12 @@ class SmartCollections(_PluginBase):
         try:
             spec = self._spec_from_payload(record.get("source_spec") or {})
             preview = self._build_preview(spec)
-            collection_name = record.get("name") or preview.get("title")
-            if collection_name == self._LEGACY_OSCAR_TITLE:
-                collection_name = self._OSCAR_BEST_PICTURE_TITLE
+            source_spec = record.get("source_spec") or {}
+            collection_name = self._migrate_catalog_title(
+                str(source_spec.get("source_type") or ""),
+                str(source_spec.get("list_id") or ""),
+                str(record.get("name") or preview.get("title") or ""),
+            )
             result = self._sync_preview_data(
                 preview=preview,
                 name=collection_name,
@@ -1022,6 +1059,11 @@ class SmartCollections(_PluginBase):
             self._collection_tools_lock.release()
 
     def api_subscribe(self, payload: dict = Body(...)) -> Dict[str, Any]:
+        return self._subscribe_item(payload or {}, background_search=True)
+
+    def _subscribe_item(
+        self, payload: Dict[str, Any], background_search: bool
+    ) -> Dict[str, Any]:
         payload = payload or {}
         try:
             tmdb_id = int(payload.get("tmdb_id"))
@@ -1051,17 +1093,21 @@ class SmartCollections(_PluginBase):
             )
             message = str(message or "")
             if subscription_id:
-                threading.Thread(
-                    target=Scheduler().start,
-                    kwargs={
-                        "job_id": "subscribe_search",
-                        "sid": int(subscription_id),
-                        "state": None,
-                        "manual": True,
-                    },
-                    name=f"SmartCollectionsSubscribeSearch-{subscription_id}",
-                    daemon=True,
-                ).start()
+                search_kwargs = {
+                    "job_id": "subscribe_search",
+                    "sid": int(subscription_id),
+                    "state": None,
+                    "manual": True,
+                }
+                if background_search:
+                    threading.Thread(
+                        target=Scheduler().start,
+                        kwargs=search_kwargs,
+                        name=f"SmartCollectionsSubscribeSearch-{subscription_id}",
+                        daemon=True,
+                    ).start()
+                else:
+                    Scheduler().start(**search_kwargs)
                 already_exists = any(
                     keyword in message for keyword in ("存在", "重复", "订阅中")
                 )
@@ -1084,6 +1130,122 @@ class SmartCollections(_PluginBase):
         except Exception as exc:
             logger.exception(f"智能合集添加订阅失败：{exc}")
             return {"success": False, "message": str(exc)}
+
+    def api_subscribe_missing_status(self) -> Dict[str, Any]:
+        with self._subscription_batch_status_lock:
+            return {"success": True, "data": dict(self._subscription_batch_status)}
+
+    def api_subscribe_missing(
+        self, payload: dict = Body(...)
+    ) -> Dict[str, Any]:
+        preview = self._get_preview(str((payload or {}).get("preview_id") or ""))
+        if not preview:
+            return {"success": False, "message": "预览已过期，请重新预览后再订阅"}
+        items = [
+            dict(item)
+            for item in preview.get("items") or []
+            if not item.get("matched")
+            and item.get("tmdb_id")
+            and item.get("media_type") in {"movie", "tv"}
+        ]
+        if not items:
+            return {"success": False, "message": "当前没有可订阅的缺失项目"}
+        if not self._subscription_batch_lock.acquire(blocking=False):
+            return {"success": False, "message": "已有一键订阅任务正在运行"}
+
+        with self._subscription_batch_status_lock:
+            self._subscription_batch_status = {
+                "running": True,
+                "progress": 0,
+                "message": f"准备订阅 {len(items)} 个缺失项目",
+                "total": len(items),
+                "subscribed": 0,
+                "failed": 0,
+                "result": None,
+                "error": None,
+            }
+        try:
+            threading.Thread(
+                target=self._run_subscribe_missing,
+                args=(items,),
+                name="SmartCollectionsSubscribeMissing",
+                daemon=True,
+            ).start()
+        except Exception as exc:
+            with self._subscription_batch_status_lock:
+                self._subscription_batch_status.update(
+                    {
+                        "running": False,
+                        "message": "一键订阅任务启动失败",
+                        "error": str(exc),
+                    }
+                )
+            self._subscription_batch_lock.release()
+            return {"success": False, "message": str(exc)}
+        return {
+            "success": True,
+            "data": {"total": len(items)},
+            "message": f"已开始订阅 {len(items)} 个缺失项目",
+        }
+
+    def _run_subscribe_missing(self, items: List[Dict[str, Any]]) -> None:
+        subscribed = 0
+        failed = 0
+        subscribed_keys: List[str] = []
+        failures: List[Dict[str, str]] = []
+        total = len(items)
+        try:
+            for index, item in enumerate(items, start=1):
+                response = self._subscribe_item(item, background_search=False)
+                if response.get("success"):
+                    subscribed += 1
+                    subscribed_keys.append(str(item.get("key") or ""))
+                else:
+                    failed += 1
+                    failures.append(
+                        {
+                            "title": str(item.get("title") or "未命名"),
+                            "message": str(response.get("message") or "添加订阅失败"),
+                        }
+                    )
+                with self._subscription_batch_status_lock:
+                    self._subscription_batch_status.update(
+                        {
+                            "progress": round(index / max(1, total) * 100, 1),
+                            "message": f"正在处理 {index}/{total}：{item.get('title') or '未命名'}",
+                            "subscribed": subscribed,
+                            "failed": failed,
+                        }
+                    )
+            result = {
+                "total": total,
+                "subscribed": subscribed,
+                "failed": failed,
+                "subscribed_keys": subscribed_keys,
+                "failures": failures[:20],
+            }
+            with self._subscription_batch_status_lock:
+                self._subscription_batch_status.update(
+                    {
+                        "running": False,
+                        "progress": 100,
+                        "message": f"一键订阅完成：成功 {subscribed}，失败 {failed}",
+                        "result": result,
+                        "error": None,
+                    }
+                )
+        except Exception as exc:
+            logger.exception(f"智能合集一键订阅缺失项目失败：{exc}")
+            with self._subscription_batch_status_lock:
+                self._subscription_batch_status.update(
+                    {
+                        "running": False,
+                        "message": "一键订阅任务失败",
+                        "error": str(exc),
+                    }
+                )
+        finally:
+            self._subscription_batch_lock.release()
 
     def api_collection_poster_auto(self, payload: dict = Body(...)) -> Dict[str, Any]:
         record = self._managed_collection_from_payload(payload)
@@ -1134,6 +1296,16 @@ class SmartCollections(_PluginBase):
     def _now() -> str:
         return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    @classmethod
+    def _migrate_catalog_title(
+        cls, source_type: str, list_id: str, title: str
+    ) -> str:
+        if list_id == "finly_oscars_animation" and title == cls._LEGACY_OSCAR_TITLE:
+            return cls._OSCAR_BEST_PICTURE_TITLE
+        return cls._LEGACY_CATALOG_TITLES.get(
+            (str(source_type), str(list_id), str(title)), str(title)
+        )
+
     def _source_catalog(self) -> Dict[str, List[dict]]:
         return {
             "tmdb": [
@@ -1156,7 +1328,7 @@ class SmartCollections(_PluginBase):
                     "name": item["title"],
                     "title": item["title"],
                     "url": f"https://www.douban.com/doulist/{item['value']}/",
-                    "media_type": "movie",
+                    "media_type": item.get("media_type") or "movie",
                 }
                 for item in POPULAR_DOUBAN_LISTS
             ],
@@ -1212,6 +1384,23 @@ class SmartCollections(_PluginBase):
             and name == self._LEGACY_OSCAR_TITLE
         ):
             name = self._OSCAR_BEST_PICTURE_TITLE
+        name = (
+            self._migrate_catalog_title(
+                source_type, str(list_id or ""), name or ""
+            )
+            or None
+        )
+        media_type = str(payload.get("media_type") or "").lower().strip() or None
+        if source_type == "douban" and not media_type:
+            definition = next(
+                (
+                    item
+                    for item in POPULAR_DOUBAN_LISTS
+                    if str(item.get("value")) == str(list_id or "")
+                ),
+                None,
+            )
+            media_type = (definition or {}).get("media_type") or "movie"
         items = payload.get("items") or []
         spec = CollectionSpec(
             source_type=source_type,
@@ -1220,6 +1409,7 @@ class SmartCollections(_PluginBase):
             list_id=list_id,
             items=items,
             mode=mode,
+            media_type=media_type,
         )
         if source_type == "template" and not items:
             raise ValueError("模板没有影视条目")
@@ -1449,7 +1639,11 @@ class SmartCollections(_PluginBase):
             record_id=record_id,
         )
         result["record_id"] = managed["id"]
-        if self._auto_poster and not managed.get("poster_source"):
+        poster_needs_refresh = not managed.get("poster_source") or (
+            managed.get("poster_source") == "auto"
+            and int(managed.get("poster_version") or 0) < self._POSTER_VERSION
+        )
+        if self._auto_poster and poster_needs_refresh:
             try:
                 self._generate_and_set_poster(managed, preview, source="auto")
                 result["poster_generated"] = True
@@ -1508,6 +1702,7 @@ class SmartCollections(_PluginBase):
             "last_sync_at": now,
             "poster_source": current.get("poster_source") if current else None,
             "poster_updated_at": current.get("poster_updated_at") if current else None,
+            "poster_version": current.get("poster_version") if current else None,
         }
         records = [item for item in records if str(item.get("id")) != record["id"]]
         records.insert(0, record)
@@ -1541,6 +1736,9 @@ class SmartCollections(_PluginBase):
             if str(item.get("id")) == str(record_id):
                 item["poster_source"] = source
                 item["poster_updated_at"] = self._now()
+                item["poster_version"] = (
+                    self._POSTER_VERSION if source == "auto" else None
+                )
                 break
         self.save_data("managed_collections", records)
 
@@ -1603,6 +1801,7 @@ class SmartCollections(_PluginBase):
                     source_type="douban",
                     name=definition["title"],
                     list_id=str(list_id),
+                    media_type=definition.get("media_type") or "movie",
                 )
             )
 
@@ -1770,7 +1969,11 @@ class SmartCollections(_PluginBase):
                 result=item_result,
                 mode=spec.mode or self._sync_mode,
             )
-            if self._auto_poster and not managed.get("poster_source"):
+            poster_needs_refresh = not managed.get("poster_source") or (
+                managed.get("poster_source") == "auto"
+                and int(managed.get("poster_version") or 0) < self._POSTER_VERSION
+            )
+            if self._auto_poster and poster_needs_refresh:
                 try:
                     self._generate_and_set_poster(managed, poster_preview, source="auto")
                     item_result["poster_generated"] = True

@@ -2,14 +2,14 @@ const currentImports = {};
       const exportSet = new Set(['Module', '__esModule', 'default', '_export_sfc']);
       let moduleMap = {
 "./Page":()=>{
-      dynamicLoadingCss(["__federation_expose_Page-uXFeSMTc.css","SmartCollectionsApp-BYqmUP-r.css"], false, './Page');
-      return __federation_import('./__federation_expose_Page-C396rDB4.js').then(module =>Object.keys(module).every(item => exportSet.has(item)) ? () => module.default : () => module)},
+      dynamicLoadingCss(["__federation_expose_Page-uXFeSMTc.css","SmartCollectionsApp-q9o_BRt-.css"], false, './Page');
+      return __federation_import('./__federation_expose_Page-CmZ2VGaW.js').then(module =>Object.keys(module).every(item => exportSet.has(item)) ? () => module.default : () => module)},
 "./Config":()=>{
       dynamicLoadingCss([], false, './Config');
       return __federation_import('./__federation_expose_Config-iKuZ5FIO.js').then(module =>Object.keys(module).every(item => exportSet.has(item)) ? () => module.default : () => module)},
 "./AppPage":()=>{
-      dynamicLoadingCss(["SmartCollectionsApp-BYqmUP-r.css"], false, './AppPage');
-      return __federation_import('./__federation_expose_AppPage-ANwsGt9P.js').then(module =>Object.keys(module).every(item => exportSet.has(item)) ? () => module.default : () => module)},};
+      dynamicLoadingCss(["SmartCollectionsApp-q9o_BRt-.css"], false, './AppPage');
+      return __federation_import('./__federation_expose_AppPage-BVOWMAVk.js').then(module =>Object.keys(module).every(item => exportSet.has(item)) ? () => module.default : () => module)},};
       const seen = {};
       const dynamicLoadingCss = (cssFilePaths, dontAppendStylesToHead, exposeItemName) => {
         const metaUrl = import.meta.url;
@@ -46,10 +46,10 @@ const currentImports = {};
             }
            }
          } else {
-           href = cssPath;
-         }
+          href = cssPath;
+        }
 
-          if (dontAppendStylesToHead) {
+         if (dontAppendStylesToHead) {
             const key = 'css__SmartCollections__' + exposeItemName;
             window[key] = window[key] || [];
             window[key].push(href);

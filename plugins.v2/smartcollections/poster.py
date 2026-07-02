@@ -297,10 +297,25 @@ class CollectionPosterBuilder:
         for candidate in candidates:
             if candidate.exists():
                 try:
-                    return ImageFont.truetype(str(candidate), size=size)
+                    font = ImageFont.truetype(str(candidate), size=size)
+                    if cls._supports_chinese(font):
+                        return font
                 except Exception:
                     continue
-        return ImageFont.load_default()
+        raise RuntimeError("未找到可完整显示中文的合集海报字体，请重新安装插件")
+
+    @staticmethod
+    def _supports_chinese(font: ImageFont.ImageFont) -> bool:
+        """Reject fonts that silently replace Chinese with the tofu glyph."""
+
+        try:
+            missing = bytes(font.getmask("\uffff"))
+            return all(
+                bytes(font.getmask(char)) != missing
+                for char in "智能合集电影电视剧"
+            )
+        except Exception:
+            return False
 
     @classmethod
     def _wrap_text(

@@ -1,5 +1,5 @@
 import { importShared } from './__federation_fn_import-JrT3xvdd.js';
-import { _ as _export_sfc, S as SmartCollectionsApp } from './SmartCollectionsApp-CL4DjLAV.js';
+import { _ as _export_sfc, S as SmartCollectionsApp } from './SmartCollectionsApp-K-pAYgC8.js';
 
 const {resolveComponent:_resolveComponent,createVNode:_createVNode,createElementVNode:_createElementVNode,withCtx:_withCtx,openBlock:_openBlock,createElementBlock:_createElementBlock} = await importShared('vue');
 
