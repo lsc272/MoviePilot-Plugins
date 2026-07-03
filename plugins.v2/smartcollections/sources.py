@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
+from app.log import logger
 from app.utils.http import RequestUtils
 
 
@@ -365,10 +366,12 @@ class SourceResolver:
         if self._tmdb_token:
             try:
                 return self._fetch_tmdb_v4(list_id)
-            except Exception:
+            except Exception as exc:
                 # Public legacy lists can still be available through v3. The caller
                 # receives the v3 error if both paths fail.
-                pass
+                logger.warning(
+                    f"TMDB v4 List {list_id} 请求失败，回退 v3 分页读取：{exc}"
+                )
         return self._fetch_tmdb_v3(list_id)
 
     def _fetch_tmdb_v4(self, list_id: str) -> ResolvedSource:
@@ -416,30 +419,57 @@ class SourceResolver:
     def _fetch_tmdb_v3(self, list_id: str) -> ResolvedSource:
         domain = settings.TMDB_API_DOMAIN or "api.themoviedb.org"
         url = f"https://{domain}/3/list/{list_id}"
-        response = RequestUtils(
-            ua=settings.USER_AGENT, proxies=self._proxies, timeout=30
-        ).get_res(
-            url,
-            params={
-                "api_key": settings.TMDB_API_KEY,
-                "language": self._language,
-            },
-        )
-        if not response or response.status_code != 200:
-            code = response.status_code if response is not None else "无响应"
-            raise RuntimeError(
-                f"TMDB List 请求失败：{code}；新版混合片单请配置 TMDB v4 Read Access Token"
+        title: Optional[str] = None
+        description: Optional[str] = None
+        reported_total: Optional[int] = None
+        raw_items: List[Dict[str, Any]] = []
+        page = 1
+        while len(raw_items) < self._max_items:
+            response = RequestUtils(
+                ua=settings.USER_AGENT, proxies=self._proxies, timeout=30
+            ).get_res(
+                url,
+                params={
+                    "api_key": settings.TMDB_API_KEY,
+                    "language": self._language,
+                    "page": page,
+                },
             )
-        payload = response.json() or {}
-        items = self._tmdb_items(payload.get("items") or [])
+            if not response or response.status_code != 200:
+                code = response.status_code if response is not None else "无响应"
+                raise RuntimeError(
+                    f"TMDB List 第 {page} 页请求失败：{code}；"
+                    "新版混合片单请配置 TMDB v4 Read Access Token"
+                )
+            payload = response.json() or {}
+            title = title or payload.get("name")
+            description = description or payload.get("description")
+            if reported_total is None:
+                reported_total = self._safe_total(
+                    payload.get("item_count") or payload.get("total_results")
+                )
+            page_items = payload.get("items") or []
+            raw_items.extend(page_items)
+            total_pages = self._safe_total(payload.get("total_pages"))
+            if not total_pages and reported_total and page_items:
+                total_pages = max(
+                    1,
+                    (reported_total + len(page_items) - 1) // len(page_items),
+                )
+            if (
+                not page_items
+                or (reported_total is not None and len(raw_items) >= reported_total)
+                or page >= int(total_pages or 1)
+            ):
+                break
+            page += 1
+
+        items = self._tmdb_items(raw_items)
         return ResolvedSource(
-            title=payload.get("name"),
+            title=title,
             items=items[: self._max_items],
-            description=str(payload.get("description") or "").strip() or None,
-            reported_total=self._safe_total(
-                payload.get("item_count") or payload.get("total_results")
-            )
-            or len(items),
+            description=str(description or "").strip() or None,
+            reported_total=reported_total or len(items),
         )
 
     @staticmethod

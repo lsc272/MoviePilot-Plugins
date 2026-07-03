@@ -6,6 +6,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
@@ -40,6 +41,7 @@ class SmartCollections(_PluginBase):
     _LEGACY_OSCAR_TITLE = "历届奥斯卡最佳动画长片及提名"
     _OSCAR_BEST_PICTURE_TITLE = "奥斯卡历届最佳影片"
     _POSTER_VERSION = 4
+    _DOUBAN_FAILURE_CACHE_TTL = 6 * 3600
     _LEGACY_CATALOG_TITLES = {
         ("tmdb_builtin", "finly_golden_globes", "历届金球奖电影精选"): "金球奖最佳剧情片",
         ("tmdb_builtin", "finly_bafta", "历届英国电影学院奖精选"): "英国电影学院奖最佳影片",
@@ -67,7 +69,7 @@ class SmartCollections(_PluginBase):
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.4.0"
+    plugin_version = "0.4.1"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -1923,8 +1925,43 @@ class SmartCollections(_PluginBase):
                 max_items=self._max_items,
                 use_proxy=self._use_proxy,
             ),
-            "douban_cache": self.get_data("douban_tmdb_cache") or {},
+            "douban_cache": self._load_douban_cache(),
         }
+
+    def _load_douban_cache(self) -> Dict[str, dict]:
+        """Merge reviewed bundled mappings with the user's persistent cache."""
+
+        local = self.get_data("douban_tmdb_cache") or {}
+        local = dict(local) if isinstance(local, dict) else {}
+        seed_path = Path(__file__).resolve().parent / "assets" / "douban_tmdb_seed.json"
+        try:
+            payload = json.loads(seed_path.read_text(encoding="utf-8"))
+            mappings = payload.get("mappings") if isinstance(payload, dict) else {}
+            if isinstance(mappings, dict):
+                for douban_id, mapping in mappings.items():
+                    if not isinstance(mapping, dict):
+                        continue
+                    current = local.get(str(douban_id)) or {}
+                    if str(mapping.get("type") or "") not in {"movie", "tv"}:
+                        continue
+                    try:
+                        tmdb_id = int(mapping.get("tmdb_id"))
+                    except (TypeError, ValueError):
+                        continue
+                    if not current or current.get("failed"):
+                        local[str(douban_id)] = {
+                            "type": str(mapping["type"]),
+                            "tmdb_id": tmdb_id,
+                            "title": mapping.get("title"),
+                            "year": mapping.get("year"),
+                            "poster_url": mapping.get("poster_url"),
+                            "source": "github_seed",
+                        }
+        except FileNotFoundError:
+            pass
+        except Exception as exc:
+            logger.warning(f"智能合集共享豆瓣映射种子读取失败：{exc}")
+        return local
 
     def _build_preview(
         self,
@@ -2118,6 +2155,16 @@ class SmartCollections(_PluginBase):
                     str(match["media_type"]),
                     int(match["tmdb_id"]),
                 )
+                if not resolved:
+                    resolved = MediaRef(
+                        media_type=str(match["media_type"]),
+                        tmdb_id=int(match["tmdb_id"]),
+                        douban_id=item.douban_id,
+                        title=item.title or match.get("name"),
+                        year=item.year or match.get("year"),
+                        poster_url=item.poster_url,
+                        aliases=item.aliases,
+                    )
                 if resolved:
                     douban_cache[key] = {
                         "type": resolved.media_type,
@@ -2486,7 +2533,7 @@ class SmartCollections(_PluginBase):
                 max_items=self._max_items,
                 use_proxy=self._use_proxy,
             )
-            douban_cache = self.get_data("douban_tmdb_cache") or {}
+            douban_cache = self._load_douban_cache()
 
             for spec in specs:
                 result = self._sync_one(
@@ -2682,6 +2729,14 @@ class SmartCollections(_PluginBase):
                 poster_url=cached.get("poster_url") or media_ref.poster_url,
                 aliases=media_ref.aliases,
             )
+        if cached and cached.get("failed"):
+            try:
+                failed_age = time.time() - float(cached.get("failed_at") or 0)
+            except (TypeError, ValueError):
+                failed_age = self._DOUBAN_FAILURE_CACHE_TTL + 1
+            if 0 <= failed_age < self._DOUBAN_FAILURE_CACHE_TTL:
+                return None
+            douban_cache.pop(str(media_ref.douban_id), None)
 
         tmdbinfo = None
         attempted_douban_chain = not skip_douban_chain and (
@@ -2761,6 +2816,13 @@ class SmartCollections(_PluginBase):
             logger.warning(
                 f"智能合集 豆瓣 ID {media_ref.douban_id} 未能匹配到 TMDB"
             )
+            douban_cache[str(media_ref.douban_id)] = {
+                "failed": True,
+                "failed_at": time.time(),
+                "title": media_ref.title,
+                "year": media_ref.year,
+                "reason": "tmdb_not_resolved",
+            }
             return None
         douban_cache[str(media_ref.douban_id)] = {
             "type": resolved.media_type,
