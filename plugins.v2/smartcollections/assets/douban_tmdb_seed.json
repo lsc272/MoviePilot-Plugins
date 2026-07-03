@@ -1,6 +1,3254 @@
 {
   "version": 1,
-  "updated_at": null,
-  "description": "Reviewed community seed mappings. Local user cache takes precedence, except a verified seed replaces a temporary failed entry.",
-  "mappings": {}
+  "exported_at": "2026-07-03 12:06:50",
+  "description": "请将 mappings 合并到共享种子并通过 GitHub PR 提交审核。",
+  "mappings": {
+    "1291543": {
+      "type": "movie",
+      "tmdb_id": 9470,
+      "title": "功夫",
+      "year": 2004
+    },
+    "1291546": {
+      "type": "movie",
+      "tmdb_id": 10997,
+      "title": "霸王别姬",
+      "year": 1993
+    },
+    "1291548": {
+      "type": "movie",
+      "tmdb_id": 207,
+      "title": "死亡诗社",
+      "year": 1989
+    },
+    "1291571": {
+      "type": "movie",
+      "tmdb_id": 120,
+      "title": "指环王1：护戒使者",
+      "year": 2001
+    },
+    "1291836": {
+      "type": "movie",
+      "tmdb_id": 3635,
+      "title": "戴珍珠耳环的少女",
+      "year": 2003
+    },
+    "1291842": {
+      "type": "movie",
+      "tmdb_id": 639,
+      "title": "当哈利遇到莎莉",
+      "year": 1989
+    },
+    "1291859": {
+      "type": "movie",
+      "tmdb_id": 10644,
+      "title": "布拉格之恋",
+      "year": 1988
+    },
+    "1292052": {
+      "type": "movie",
+      "tmdb_id": 278,
+      "title": "肖申克的救赎",
+      "year": 1994
+    },
+    "1292063": {
+      "type": "movie",
+      "tmdb_id": 637,
+      "title": "美丽人生",
+      "year": 1997
+    },
+    "1292215": {
+      "type": "movie",
+      "tmdb_id": 194,
+      "title": "天使爱美丽",
+      "year": 2001
+    },
+    "1292234": {
+      "type": "movie",
+      "tmdb_id": 2841,
+      "title": "漫长的婚约",
+      "year": 2004
+    },
+    "1292262": {
+      "type": "movie",
+      "tmdb_id": 311,
+      "title": "美国往事",
+      "year": 1984
+    },
+    "1292343": {
+      "type": "movie",
+      "tmdb_id": 1954,
+      "title": "蝴蝶效应",
+      "year": 2004
+    },
+    "1292344": {
+      "type": "movie",
+      "tmdb_id": 163,
+      "title": "十二罗汉",
+      "year": 2004
+    },
+    "1292365": {
+      "type": "movie",
+      "tmdb_id": 31439,
+      "title": "活着",
+      "year": 1994
+    },
+    "1292521": {
+      "type": "movie",
+      "tmdb_id": 654,
+      "title": "码头风云",
+      "year": 1954
+    },
+    "1292585": {
+      "type": "movie",
+      "tmdb_id": 10474,
+      "title": "边缘日记",
+      "year": 1995
+    },
+    "1292699": {
+      "type": "movie",
+      "tmdb_id": 4176,
+      "title": "东方快车谋杀案",
+      "year": 1974
+    },
+    "1292720": {
+      "type": "movie",
+      "tmdb_id": 13,
+      "title": "阿甘正传",
+      "year": 1994
+    },
+    "1292895": {
+      "type": "movie",
+      "tmdb_id": 17809,
+      "title": "精武英雄",
+      "year": 1994
+    },
+    "1293179": {
+      "type": "movie",
+      "tmdb_id": 12159,
+      "title": "美梦成真",
+      "year": 1998
+    },
+    "1293204": {
+      "type": "movie",
+      "tmdb_id": 403,
+      "title": "为黛西小姐开车",
+      "year": 1989
+    },
+    "1293544": {
+      "type": "movie",
+      "tmdb_id": 274,
+      "title": "沉默的羔羊",
+      "year": 1991
+    },
+    "1293813": {
+      "type": "movie",
+      "tmdb_id": 22013,
+      "title": "孽海痴魂",
+      "year": 1960
+    },
+    "1293828": {
+      "type": "movie",
+      "tmdb_id": 658,
+      "title": "007：金手指",
+      "year": 1964
+    },
+    "1293889": {
+      "type": "movie",
+      "tmdb_id": 829,
+      "title": "唐人街",
+      "year": 1974
+    },
+    "1294689": {
+      "type": "movie",
+      "tmdb_id": 10560,
+      "title": "中央舞台",
+      "year": 2000
+    },
+    "1294693": {
+      "type": "movie",
+      "tmdb_id": 10387,
+      "title": "荆轲刺秦王",
+      "year": 1998
+    },
+    "1294948": {
+      "type": "movie",
+      "tmdb_id": 1281,
+      "title": "憨豆先生的大灾难",
+      "year": 1997
+    },
+    "1295106": {
+      "type": "movie",
+      "tmdb_id": 18665,
+      "title": "鼠胆龙威",
+      "year": 1995
+    },
+    "1295116": {
+      "type": "movie",
+      "tmdb_id": 143,
+      "title": "西线无战事",
+      "year": 1930
+    },
+    "1295124": {
+      "type": "movie",
+      "tmdb_id": 424,
+      "title": "辛德勒的名单",
+      "year": 1993
+    },
+    "1295229": {
+      "type": "movie",
+      "tmdb_id": 564,
+      "title": "木乃伊",
+      "year": 1999
+    },
+    "1295242": {
+      "type": "movie",
+      "tmdb_id": 10137,
+      "title": "精灵鼠小弟",
+      "year": 1999
+    },
+    "1295280": {
+      "type": "movie",
+      "tmdb_id": 608,
+      "title": "黑衣人2",
+      "year": 2002
+    },
+    "1295374": {
+      "type": "movie",
+      "tmdb_id": 93465,
+      "title": "金玉满堂",
+      "year": 1995
+    },
+    "1295384": {
+      "type": "movie",
+      "tmdb_id": 563,
+      "title": "星河战队",
+      "year": 1997
+    },
+    "1295437": {
+      "type": "movie",
+      "tmdb_id": 9377,
+      "title": "春天不是读书天",
+      "year": 1986
+    },
+    "1295547": {
+      "type": "movie",
+      "tmdb_id": 10622,
+      "title": "一个好人",
+      "year": 1997
+    },
+    "1295804": {
+      "type": "movie",
+      "tmdb_id": 8818,
+      "title": "贝隆夫人",
+      "year": 1996
+    },
+    "1295812": {
+      "type": "movie",
+      "tmdb_id": 16672,
+      "title": "砂之女",
+      "year": 1964
+    },
+    "1296141": {
+      "type": "movie",
+      "tmdb_id": 37257,
+      "title": "控方证人",
+      "year": 1957
+    },
+    "1296283": {
+      "type": "movie",
+      "tmdb_id": 48831,
+      "title": "慕德家一夜",
+      "year": 1969
+    },
+    "1296482": {
+      "type": "movie",
+      "tmdb_id": 880,
+      "title": "安东尼娅家族",
+      "year": 1995
+    },
+    "1296538": {
+      "type": "movie",
+      "tmdb_id": 10693,
+      "title": "小飞侠",
+      "year": 1953
+    },
+    "1296629": {
+      "type": "movie",
+      "tmdb_id": 9050,
+      "title": "倩女幽魂2：人间道",
+      "year": 1990
+    },
+    "1296996": {
+      "type": "movie",
+      "tmdb_id": 672,
+      "title": "哈利·波特与密室",
+      "year": 2002
+    },
+    "1297239": {
+      "type": "movie",
+      "tmdb_id": 11034,
+      "title": "了不起的盖茨比",
+      "year": 1974
+    },
+    "1297862": {
+      "type": "movie",
+      "tmdb_id": 18305,
+      "title": "英雄本色2",
+      "year": 1987
+    },
+    "1297965": {
+      "type": "movie",
+      "tmdb_id": 11113,
+      "title": "窈窕淑女",
+      "year": 1964
+    },
+    "1298038": {
+      "type": "movie",
+      "tmdb_id": 509,
+      "title": "诺丁山",
+      "year": 1999
+    },
+    "1298385": {
+      "type": "movie",
+      "tmdb_id": 2639,
+      "title": "解构爱情狂",
+      "year": 1997
+    },
+    "1298443": {
+      "type": "movie",
+      "tmdb_id": 10617,
+      "title": "黄飞鸿之一：壮志凌云",
+      "year": 1991
+    },
+    "1298616": {
+      "type": "movie",
+      "tmdb_id": 1716,
+      "title": "最后一班地铁",
+      "year": 1980
+    },
+    "1298817": {
+      "type": "movie",
+      "tmdb_id": 962,
+      "title": "淘金记",
+      "year": 1925
+    },
+    "1298854": {
+      "type": "tv",
+      "tmdb_id": 1973,
+      "title": "24小时",
+      "year": 2001
+    },
+    "1298973": {
+      "type": "movie",
+      "tmdb_id": 12093,
+      "title": "永远的莉莉亚",
+      "year": 2002
+    },
+    "1299261": {
+      "type": "movie",
+      "tmdb_id": 26638,
+      "title": "红色沙漠",
+      "year": 1964
+    },
+    "1299383": {
+      "type": "movie",
+      "tmdb_id": 616,
+      "title": "最后的武士",
+      "year": 2003
+    },
+    "1299481": {
+      "type": "movie",
+      "tmdb_id": 15677,
+      "title": "查令十字街84号",
+      "year": 1987
+    },
+    "1300374": {
+      "type": "movie",
+      "tmdb_id": 497,
+      "title": "绿里奇迹",
+      "year": 1999
+    },
+    "1300487": {
+      "type": "movie",
+      "tmdb_id": 9443,
+      "title": "烈火战车",
+      "year": 1981
+    },
+    "1300613": {
+      "type": "movie",
+      "tmdb_id": 137,
+      "title": "土拨鼠之日",
+      "year": 1993
+    },
+    "1300614": {
+      "type": "movie",
+      "tmdb_id": 25016,
+      "title": "卖花女",
+      "year": 1938
+    },
+    "1300868": {
+      "type": "movie",
+      "tmdb_id": 348,
+      "title": "异形",
+      "year": 1979
+    },
+    "1300930": {
+      "type": "movie",
+      "tmdb_id": 68924,
+      "title": "冰风暴",
+      "year": 1997
+    },
+    "1301214": {
+      "type": "movie",
+      "tmdb_id": 12627,
+      "title": "不羁的美女",
+      "year": 1991
+    },
+    "1301272": {
+      "type": "movie",
+      "tmdb_id": 61485,
+      "title": "小城之春",
+      "year": 2002
+    },
+    "1301509": {
+      "type": "movie",
+      "tmdb_id": 2005,
+      "title": "修女也疯狂",
+      "year": 1992
+    },
+    "1301646": {
+      "type": "movie",
+      "tmdb_id": 5967,
+      "title": "瑟堡的雨伞",
+      "year": 1964
+    },
+    "1301720": {
+      "type": "movie",
+      "tmdb_id": 10876,
+      "title": "鹅毛笔",
+      "year": 2000
+    },
+    "1301753": {
+      "type": "movie",
+      "tmdb_id": 8587,
+      "title": "狮子王",
+      "year": 1994
+    },
+    "1301775": {
+      "type": "movie",
+      "tmdb_id": 2609,
+      "title": "落难见真情",
+      "year": 1987
+    },
+    "1301899": {
+      "type": "movie",
+      "tmdb_id": 1902,
+      "title": "睁开你的双眼",
+      "year": 1997
+    },
+    "1302061": {
+      "type": "movie",
+      "tmdb_id": 655,
+      "title": "德州巴黎",
+      "year": 1984
+    },
+    "1302325": {
+      "type": "movie",
+      "tmdb_id": 4147,
+      "title": "毁灭之路",
+      "year": 2002
+    },
+    "1302467": {
+      "type": "movie",
+      "tmdb_id": 605,
+      "title": "黑客帝国3：矩阵革命",
+      "year": 2003
+    },
+    "1302522": {
+      "type": "movie",
+      "tmdb_id": 391,
+      "title": "荒野大镖客",
+      "year": 1964
+    },
+    "1302542": {
+      "type": "movie",
+      "tmdb_id": 11368,
+      "title": "血迷宫",
+      "year": 1985
+    },
+    "1303139": {
+      "type": "movie",
+      "tmdb_id": 4108,
+      "title": "玩命快递",
+      "year": 2002
+    },
+    "1303408": {
+      "type": "movie",
+      "tmdb_id": 992,
+      "title": "福尔摩斯二世",
+      "year": 1924
+    },
+    "1303410": {
+      "type": "movie",
+      "tmdb_id": 939,
+      "title": "爵士歌手",
+      "year": 1927
+    },
+    "1303528": {
+      "type": "movie",
+      "tmdb_id": 47715,
+      "title": "访谈录",
+      "year": 1987
+    },
+    "1303534": {
+      "type": "movie",
+      "tmdb_id": 10293,
+      "title": "沙滩上的宝莲",
+      "year": 1983
+    },
+    "1304022": {
+      "type": "movie",
+      "tmdb_id": 77633,
+      "title": "大腕",
+      "year": 2001
+    },
+    "1304056": {
+      "type": "movie",
+      "tmdb_id": 457,
+      "title": "茜茜公主",
+      "year": 1955
+    },
+    "1304406": {
+      "type": "movie",
+      "tmdb_id": 17078,
+      "title": "天堂的颜色",
+      "year": 1999
+    },
+    "1304643": {
+      "type": "movie",
+      "tmdb_id": 331,
+      "title": "侏罗纪公园3",
+      "year": 2001
+    },
+    "1305175": {
+      "type": "movie",
+      "tmdb_id": 163677,
+      "title": "漂亮妈妈",
+      "year": 2000
+    },
+    "1305201": {
+      "type": "movie",
+      "tmdb_id": 18731,
+      "title": "黄飞鸿之铁鸡斗蜈蚣",
+      "year": 1993
+    },
+    "1305248": {
+      "type": "movie",
+      "tmdb_id": 768,
+      "title": "来自地狱",
+      "year": 2001
+    },
+    "1305355": {
+      "type": "movie",
+      "tmdb_id": 32517,
+      "title": "审死官",
+      "year": 1992
+    },
+    "1305509": {
+      "type": "movie",
+      "tmdb_id": 9689,
+      "title": "好莱坞式结局",
+      "year": 2002
+    },
+    "1305814": {
+      "type": "movie",
+      "tmdb_id": 62394,
+      "title": "小树的故事",
+      "year": 1997
+    },
+    "1305978": {
+      "type": "movie",
+      "tmdb_id": 308963,
+      "title": "边城",
+      "year": 1984
+    },
+    "1306154": {
+      "type": "movie",
+      "tmdb_id": 454,
+      "title": "罗密欧与朱丽叶",
+      "year": 1996
+    },
+    "1306160": {
+      "type": "movie",
+      "tmdb_id": 11636,
+      "title": "新警察故事",
+      "year": 2004
+    },
+    "1307106": {
+      "type": "movie",
+      "tmdb_id": 11647,
+      "title": "无间道2",
+      "year": 2003
+    },
+    "1307463": {
+      "type": "movie",
+      "tmdb_id": 9567,
+      "title": "太阳泪",
+      "year": 2003
+    },
+    "1307856": {
+      "type": "movie",
+      "tmdb_id": 295279,
+      "title": "背靠背，脸对脸",
+      "year": 1994
+    },
+    "1308035": {
+      "type": "movie",
+      "tmdb_id": 49291,
+      "title": "顺流逆流",
+      "year": 2000
+    },
+    "1308715": {
+      "type": "movie",
+      "tmdb_id": 9620,
+      "title": "记忆裂痕",
+      "year": 2003
+    },
+    "1308776": {
+      "type": "movie",
+      "tmdb_id": 8920,
+      "title": "加菲猫",
+      "year": 2004
+    },
+    "1308777": {
+      "type": "movie",
+      "tmdb_id": 38,
+      "title": "暖暖内含光",
+      "year": 2004
+    },
+    "1308779": {
+      "type": "movie",
+      "tmdb_id": 435,
+      "title": "后天",
+      "year": 2004
+    },
+    "1308799": {
+      "type": "movie",
+      "tmdb_id": 165954,
+      "title": "一个陌生女人的来信",
+      "year": 2004
+    },
+    "1308807": {
+      "type": "movie",
+      "tmdb_id": 4935,
+      "title": "哈尔的移动城堡",
+      "year": 2004
+    },
+    "1308843": {
+      "type": "movie",
+      "tmdb_id": 2048,
+      "title": "我，机器人",
+      "year": 2004
+    },
+    "1308857": {
+      "type": "movie",
+      "tmdb_id": 16074,
+      "title": "可可西里",
+      "year": 2004
+    },
+    "1308979": {
+      "type": "movie",
+      "tmdb_id": 11774,
+      "title": "雷蒙·斯尼奇的不幸历险",
+      "year": 2004
+    },
+    "1309001": {
+      "type": "movie",
+      "tmdb_id": 11109,
+      "title": "维拉·德雷克",
+      "year": 2004
+    },
+    "1309015": {
+      "type": "movie",
+      "tmdb_id": 1653,
+      "title": "摩托日记",
+      "year": 2004
+    },
+    "1309020": {
+      "type": "movie",
+      "tmdb_id": 8488,
+      "title": "全民情敌",
+      "year": 2005
+    },
+    "1309136": {
+      "type": "movie",
+      "tmdb_id": 7131,
+      "title": "范海辛",
+      "year": 2004
+    },
+    "1309163": {
+      "type": "movie",
+      "tmdb_id": 11036,
+      "title": "恋恋笔记本",
+      "year": 2004
+    },
+    "1309172": {
+      "type": "movie",
+      "tmdb_id": 1824,
+      "title": "初恋50次",
+      "year": 2004
+    },
+    "1309206": {
+      "type": "movie",
+      "tmdb_id": 9787,
+      "title": "狗镇之主",
+      "year": 2005
+    },
+    "1316698": {
+      "type": "movie",
+      "tmdb_id": 59423,
+      "title": "马拉松",
+      "year": 2005
+    },
+    "1326038": {
+      "type": "movie",
+      "tmdb_id": 15265,
+      "title": "红气球",
+      "year": 1956
+    },
+    "1366853": {
+      "type": "movie",
+      "tmdb_id": 28772,
+      "title": "旺角黑夜",
+      "year": 2004
+    },
+    "1388170": {
+      "type": "movie",
+      "tmdb_id": 40452,
+      "title": "哭泣的拳头",
+      "year": 2005
+    },
+    "1388180": {
+      "type": "movie",
+      "tmdb_id": 37952,
+      "title": "哭泣的草原",
+      "year": 2004
+    },
+    "1389949": {
+      "type": "movie",
+      "tmdb_id": 907,
+      "title": "日瓦戈医生",
+      "year": 1965
+    },
+    "1395546": {
+      "type": "movie",
+      "tmdb_id": 1611,
+      "title": "伯尔尼的奇迹",
+      "year": 2003
+    },
+    "1401588": {
+      "type": "movie",
+      "tmdb_id": 8073,
+      "title": "法外之徒",
+      "year": 1964
+    },
+    "1418052": {
+      "type": "movie",
+      "tmdb_id": 11019,
+      "title": "深蓝",
+      "year": 2003
+    },
+    "1418070": {
+      "type": "movie",
+      "tmdb_id": 44458,
+      "title": "如果·爱",
+      "year": 2005
+    },
+    "1418192": {
+      "type": "movie",
+      "tmdb_id": 285,
+      "title": "加勒比海盗3：世界的尽头",
+      "year": 2007
+    },
+    "1418194": {
+      "type": "movie",
+      "tmdb_id": 257,
+      "title": "雾都孤儿",
+      "year": 2005
+    },
+    "1422283": {
+      "type": "movie",
+      "tmdb_id": 258424,
+      "title": "高山下的花环",
+      "year": 1984
+    },
+    "1422927": {
+      "type": "movie",
+      "tmdb_id": 15184,
+      "title": "痴男怨女",
+      "year": 2004
+    },
+    "1424218": {
+      "type": "movie",
+      "tmdb_id": 25,
+      "title": "锅盖头",
+      "year": 2005
+    },
+    "1432782": {
+      "type": "movie",
+      "tmdb_id": 31977,
+      "title": "黑色的风采",
+      "year": 2005
+    },
+    "1433990": {
+      "type": "movie",
+      "tmdb_id": 80219,
+      "title": "风雨哈佛路",
+      "year": 2003
+    },
+    "1438091": {
+      "type": "movie",
+      "tmdb_id": 316957,
+      "title": "英雄儿女",
+      "year": 1964
+    },
+    "1461403": {
+      "type": "movie",
+      "tmdb_id": 526431,
+      "title": "茶馆",
+      "year": 1982
+    },
+    "1470619": {
+      "type": "tv",
+      "tmdb_id": 2489,
+      "title": "荒凉山庄",
+      "year": 2005
+    },
+    "1479807": {
+      "type": "movie",
+      "tmdb_id": 1488,
+      "title": "绿草地",
+      "year": 2005
+    },
+    "1482079": {
+      "type": "movie",
+      "tmdb_id": 9906,
+      "title": "别惹蚂蚁",
+      "year": 2006
+    },
+    "1482107": {
+      "type": "movie",
+      "tmdb_id": 9297,
+      "title": "怪兽屋",
+      "year": 2006
+    },
+    "1578507": {
+      "type": "movie",
+      "tmdb_id": 2503,
+      "title": "谍影重重3",
+      "year": 2007
+    },
+    "1588945": {
+      "type": "movie",
+      "tmdb_id": 9829,
+      "title": "93航班",
+      "year": 2006
+    },
+    "1652592": {
+      "type": "movie",
+      "tmdb_id": 399579,
+      "title": "阿丽塔：战斗天使",
+      "year": 2019
+    },
+    "1751955": {
+      "type": "tv",
+      "tmdb_id": 12050,
+      "title": "自动机器人·铁臂阿童木",
+      "year": 2003
+    },
+    "1758810": {
+      "type": "tv",
+      "tmdb_id": 19614,
+      "title": "小丑回魂",
+      "year": 1990
+    },
+    "1763132": {
+      "type": "movie",
+      "tmdb_id": 25648,
+      "title": "时间",
+      "year": 2006
+    },
+    "1765009": {
+      "type": "movie",
+      "tmdb_id": 10947,
+      "title": "歌舞青春",
+      "year": 2006
+    },
+    "1781126": {
+      "type": "movie",
+      "tmdb_id": 1949,
+      "title": "十二宫",
+      "year": 2007
+    },
+    "1793909": {
+      "type": "movie",
+      "tmdb_id": 1738,
+      "title": "预见未来",
+      "year": 2007
+    },
+    "1794171": {
+      "type": "movie",
+      "tmdb_id": 1858,
+      "title": "变形金刚",
+      "year": 2007
+    },
+    "1794360": {
+      "type": "movie",
+      "tmdb_id": 16147,
+      "title": "晨曦中的女孩",
+      "year": 2005
+    },
+    "1827042": {
+      "type": "movie",
+      "tmdb_id": 4517,
+      "title": "伊丽莎白：黄金时代",
+      "year": 2007
+    },
+    "1829654": {
+      "type": "movie",
+      "tmdb_id": 1268,
+      "title": "憨豆先生的黄金周",
+      "year": 2007
+    },
+    "1837856": {
+      "type": "tv",
+      "tmdb_id": 1639,
+      "title": "英雄",
+      "year": 2006
+    },
+    "1842898": {
+      "type": "movie",
+      "tmdb_id": 53565,
+      "title": "汽船威利",
+      "year": 1928
+    },
+    "1847602": {
+      "type": "movie",
+      "tmdb_id": 36815,
+      "title": "痛苦与狂喜",
+      "year": 1965
+    },
+    "1848925": {
+      "type": "movie",
+      "tmdb_id": 13754,
+      "title": "恶童",
+      "year": 2006
+    },
+    "1850660": {
+      "type": "movie",
+      "tmdb_id": 1590,
+      "title": "复制贝多芬",
+      "year": 2006
+    },
+    "1851906": {
+      "type": "movie",
+      "tmdb_id": 35,
+      "title": "辛普森一家",
+      "year": 2007
+    },
+    "1859036": {
+      "type": "movie",
+      "tmdb_id": 25676,
+      "title": "宝贝计划",
+      "year": 2006
+    },
+    "1865943": {
+      "type": "movie",
+      "tmdb_id": 70841,
+      "title": "哆啦A梦：大雄的恐龙2006",
+      "year": 2006
+    },
+    "1866479": {
+      "type": "movie",
+      "tmdb_id": 24428,
+      "title": "复仇者联盟",
+      "year": 2012
+    },
+    "1884684": {
+      "type": "movie",
+      "tmdb_id": 68730,
+      "title": "沉默",
+      "year": 2016
+    },
+    "1895120": {
+      "type": "movie",
+      "tmdb_id": 14001,
+      "title": "死寂",
+      "year": 2007
+    },
+    "1898223": {
+      "type": "movie",
+      "tmdb_id": 1407,
+      "title": "玫瑰人生",
+      "year": 2007
+    },
+    "1937946": {
+      "type": "movie",
+      "tmdb_id": 14069,
+      "title": "穿越时空的少女",
+      "year": 2006
+    },
+    "1941214": {
+      "type": "movie",
+      "tmdb_id": 49349,
+      "title": "南丁格尔传",
+      "year": 1985
+    },
+    "1941283": {
+      "type": "movie",
+      "tmdb_id": 17181,
+      "title": "南京",
+      "year": 2007
+    },
+    "1947114": {
+      "type": "movie",
+      "tmdb_id": 37984,
+      "title": "跟踪",
+      "year": 2007
+    },
+    "1947549": {
+      "type": "movie",
+      "tmdb_id": 7485,
+      "title": "生死狙击",
+      "year": 2007
+    },
+    "1949812": {
+      "type": "movie",
+      "tmdb_id": 382635,
+      "title": "东京审判",
+      "year": 2006
+    },
+    "1959877": {
+      "type": "movie",
+      "tmdb_id": 12429,
+      "title": "崖上的波妞",
+      "year": 2008
+    },
+    "1962116": {
+      "type": "movie",
+      "tmdb_id": 2011,
+      "title": "我在伊朗长大",
+      "year": 2007
+    },
+    "2002744": {
+      "type": "movie",
+      "tmdb_id": 7973,
+      "title": "焦糖",
+      "year": 2007
+    },
+    "2004482": {
+      "type": "movie",
+      "tmdb_id": 8938,
+      "title": "东京！",
+      "year": 2008
+    },
+    "2046839": {
+      "type": "movie",
+      "tmdb_id": 22494,
+      "title": "有关时间旅行的热门问题",
+      "year": 2009
+    },
+    "2049435": {
+      "type": "movie",
+      "tmdb_id": 49521,
+      "title": "超人：钢铁之躯",
+      "year": 2013
+    },
+    "2059276": {
+      "type": "movie",
+      "tmdb_id": 1678,
+      "title": "哥斯拉",
+      "year": 1954
+    },
+    "2059321": {
+      "type": "movie",
+      "tmdb_id": 8088,
+      "title": "破碎的拥抱",
+      "year": 2009
+    },
+    "2082013": {
+      "type": "movie",
+      "tmdb_id": 4564,
+      "title": "欲望都市",
+      "year": 2008
+    },
+    "2122766": {
+      "type": "movie",
+      "tmdb_id": 6537,
+      "title": "孤堡惊情",
+      "year": 2007
+    },
+    "2131678": {
+      "type": "tv",
+      "tmdb_id": 15114,
+      "title": "约翰·亚当斯",
+      "year": 2008
+    },
+    "2132932": {
+      "type": "movie",
+      "tmdb_id": 13475,
+      "title": "星际迷航",
+      "year": 2009
+    },
+    "2133340": {
+      "type": "movie",
+      "tmdb_id": 18320,
+      "title": "年轻的维多利亚",
+      "year": 2009
+    },
+    "2137132": {
+      "type": "movie",
+      "tmdb_id": 15044,
+      "title": "爱因斯坦与爱丁顿",
+      "year": 2008
+    },
+    "2155676": {
+      "type": "movie",
+      "tmdb_id": 8204,
+      "title": "奇幻精灵事件簿",
+      "year": 2008
+    },
+    "2212901": {
+      "type": "movie",
+      "tmdb_id": 47525,
+      "title": "平凡岁月的魅力",
+      "year": 2005
+    },
+    "2213591": {
+      "type": "movie",
+      "tmdb_id": 16996,
+      "title": "重返十七岁",
+      "year": 2009
+    },
+    "2223596": {
+      "type": "movie",
+      "tmdb_id": 14869,
+      "title": "特种部队Ⅰ：眼镜蛇的崛起",
+      "year": 2009
+    },
+    "2225217": {
+      "type": "movie",
+      "tmdb_id": 10187,
+      "title": "关键一票",
+      "year": 2008
+    },
+    "2255554": {
+      "type": "movie",
+      "tmdb_id": 13353,
+      "title": "这是南瓜大王哦，查理·布朗",
+      "year": 1966
+    },
+    "2264077": {
+      "type": "tv",
+      "tmdb_id": 30237,
+      "title": "奔向地球",
+      "year": 2007
+    },
+    "2363506": {
+      "type": "movie",
+      "tmdb_id": 7508,
+      "title": "地球上的星星",
+      "year": 2007
+    },
+    "2995714": {
+      "type": "movie",
+      "tmdb_id": 11209,
+      "title": "锦绣山河烈士血",
+      "year": 1960
+    },
+    "2996706": {
+      "type": "movie",
+      "tmdb_id": 90125,
+      "title": "马利",
+      "year": 2012
+    },
+    "2998270": {
+      "type": "movie",
+      "tmdb_id": 10528,
+      "title": "大侦探福尔摩斯",
+      "year": 2009
+    },
+    "3005875": {
+      "type": "movie",
+      "tmdb_id": 14161,
+      "title": "2012",
+      "year": 2009
+    },
+    "3011102": {
+      "type": "movie",
+      "tmdb_id": 18240,
+      "title": "假结婚",
+      "year": 2009
+    },
+    "3025809": {
+      "type": "movie",
+      "tmdb_id": 82633,
+      "title": "无法无天",
+      "year": 2012
+    },
+    "3033864": {
+      "type": "movie",
+      "tmdb_id": 257562,
+      "title": "地道战",
+      "year": 1965
+    },
+    "3036464": {
+      "type": "movie",
+      "tmdb_id": 25195,
+      "title": "闰年",
+      "year": 2010
+    },
+    "3054147": {
+      "type": "movie",
+      "tmdb_id": 72334,
+      "title": "黑猩猩",
+      "year": 2012
+    },
+    "3069368": {
+      "type": "movie",
+      "tmdb_id": 21641,
+      "title": "魔鬼联队",
+      "year": 2009
+    },
+    "3071441": {
+      "type": "movie",
+      "tmdb_id": 110415,
+      "title": "雪国列车",
+      "year": 2013
+    },
+    "3073268": {
+      "type": "movie",
+      "tmdb_id": 555564,
+      "title": "pel",
+      "year": 2016
+    },
+    "3077668": {
+      "type": "movie",
+      "tmdb_id": 56575,
+      "title": "天水围的日与夜",
+      "year": 2008
+    },
+    "3095502": {
+      "type": "movie",
+      "tmdb_id": 214418,
+      "title": "亚马逊萌猴奇遇记",
+      "year": 2013
+    },
+    "3103678": {
+      "type": "tv",
+      "tmdb_id": 8358,
+      "title": "千谎百计",
+      "year": 2009
+    },
+    "3143727": {
+      "type": "movie",
+      "tmdb_id": 449443,
+      "title": "贼巢",
+      "year": 2018
+    },
+    "3155961": {
+      "type": "movie",
+      "tmdb_id": 33511,
+      "title": "无处的男孩",
+      "year": 2009
+    },
+    "3168101": {
+      "type": "movie",
+      "tmdb_id": 335983,
+      "title": "毒液：致命守护者",
+      "year": 2018
+    },
+    "3173635": {
+      "type": "movie",
+      "tmdb_id": 14415,
+      "title": "花落花开",
+      "year": 2008
+    },
+    "3195101": {
+      "type": "movie",
+      "tmdb_id": 41110,
+      "title": "我是爱",
+      "year": 2010
+    },
+    "3212296": {
+      "type": "movie",
+      "tmdb_id": 16277,
+      "title": "裙角飞扬的日子",
+      "year": 2008
+    },
+    "3212397": {
+      "type": "movie",
+      "tmdb_id": 451480,
+      "title": "根西岛文学与土豆皮馅饼俱乐部",
+      "year": 2018
+    },
+    "3233635": {
+      "type": "movie",
+      "tmdb_id": 49444,
+      "title": "功夫熊猫2",
+      "year": 2011
+    },
+    "3233761": {
+      "type": "movie",
+      "tmdb_id": 18785,
+      "title": "宿醉",
+      "year": 2009
+    },
+    "3274505": {
+      "type": "movie",
+      "tmdb_id": 61791,
+      "title": "猩球崛起",
+      "year": 2011
+    },
+    "3292949": {
+      "type": "movie",
+      "tmdb_id": 132363,
+      "title": "白宫管家",
+      "year": 2013
+    },
+    "3395373": {
+      "type": "movie",
+      "tmdb_id": 49026,
+      "title": "蝙蝠侠：黑暗骑士崛起",
+      "year": 2012
+    },
+    "3431802": {
+      "type": "movie",
+      "tmdb_id": 66125,
+      "title": "红犬历险记",
+      "year": 2011
+    },
+    "3578981": {
+      "type": "movie",
+      "tmdb_id": 37472,
+      "title": "叶问2",
+      "year": 2010
+    },
+    "3582181": {
+      "type": "movie",
+      "tmdb_id": 205775,
+      "title": "海洋深处",
+      "year": 2015
+    },
+    "3637220": {
+      "type": "movie",
+      "tmdb_id": 85444,
+      "title": "皱纹",
+      "year": 2011
+    },
+    "3718237": {
+      "type": "movie",
+      "tmdb_id": 78698,
+      "title": "鲸奇",
+      "year": 2012
+    },
+    "3725324": {
+      "type": "movie",
+      "tmdb_id": 44992,
+      "title": "哈勃望远镜",
+      "year": 2010
+    },
+    "3737102": {
+      "type": "movie",
+      "tmdb_id": 40911,
+      "title": "艋舺",
+      "year": 2010
+    },
+    "3749948": {
+      "type": "movie",
+      "tmdb_id": 109584,
+      "title": "拼贴幸福",
+      "year": 2012
+    },
+    "3792848": {
+      "type": "movie",
+      "tmdb_id": 50014,
+      "title": "相助",
+      "year": 2011
+    },
+    "3819871": {
+      "type": "movie",
+      "tmdb_id": 71864,
+      "title": "蒂莫西的奇异生活",
+      "year": 2012
+    },
+    "3927767": {
+      "type": "movie",
+      "tmdb_id": 555604,
+      "title": "吉尔莫·德尔·托罗的匹诺曹",
+      "year": 2022
+    },
+    "3993559": {
+      "type": "movie",
+      "tmdb_id": 1276259,
+      "title": "赛德克·巴莱",
+      "year": 2012
+    },
+    "4111408": {
+      "type": "movie",
+      "tmdb_id": 45658,
+      "title": "大甩卖",
+      "year": 2011
+    },
+    "4144511": {
+      "type": "movie",
+      "tmdb_id": 48414,
+      "title": "与海共生",
+      "year": 2010
+    },
+    "4221475": {
+      "type": "movie",
+      "tmdb_id": 115023,
+      "title": "测量世界",
+      "year": 2012
+    },
+    "4249355": {
+      "type": "movie",
+      "tmdb_id": 51608,
+      "title": "孤胆特工",
+      "year": 2010
+    },
+    "4301224": {
+      "type": "movie",
+      "tmdb_id": 102651,
+      "title": "沉睡魔咒",
+      "year": 2014
+    },
+    "4811774": {
+      "type": "movie",
+      "tmdb_id": 76600,
+      "title": "阿凡达：水之道",
+      "year": 2022
+    },
+    "4914656": {
+      "type": "movie",
+      "tmdb_id": 52264,
+      "title": "猫在巴黎",
+      "year": 2010
+    },
+    "4915857": {
+      "type": "movie",
+      "tmdb_id": 93456,
+      "title": "神偷奶爸2",
+      "year": 2013
+    },
+    "5041518": {
+      "type": "movie",
+      "tmdb_id": 391714,
+      "title": "在切瑟尔海滩上",
+      "year": 2018
+    },
+    "5151939": {
+      "type": "movie",
+      "tmdb_id": 75900,
+      "title": "我与梦露的一周",
+      "year": 2011
+    },
+    "5155128": {
+      "type": "movie",
+      "tmdb_id": 70667,
+      "title": "孤筏重洋",
+      "year": 2012
+    },
+    "5158101": {
+      "type": "movie",
+      "tmdb_id": 84185,
+      "title": "逐冰之旅",
+      "year": 2012
+    },
+    "5262338": {
+      "type": "movie",
+      "tmdb_id": 83389,
+      "title": "虞美人盛开的山坡",
+      "year": 2011
+    },
+    "5308265": {
+      "type": "movie",
+      "tmdb_id": 170657,
+      "title": "西游降魔篇",
+      "year": 2013
+    },
+    "5446197": {
+      "type": "movie",
+      "tmdb_id": 307081,
+      "title": "铁拳",
+      "year": 2015
+    },
+    "5502697": {
+      "type": "movie",
+      "tmdb_id": 124157,
+      "title": "夺宝联盟",
+      "year": 2012
+    },
+    "6011805": {
+      "type": "movie",
+      "tmdb_id": 139329,
+      "title": "一九四二",
+      "year": 2012
+    },
+    "6110546": {
+      "type": "movie",
+      "tmdb_id": 96724,
+      "title": "安娜·卡列尼娜",
+      "year": 2012
+    },
+    "6390832": {
+      "type": "movie",
+      "tmdb_id": 87502,
+      "title": "迫降航班",
+      "year": 2012
+    },
+    "6432898": {
+      "type": "movie",
+      "tmdb_id": 152795,
+      "title": "未来学大会",
+      "year": 2013
+    },
+    "6517421": {
+      "type": "movie",
+      "tmdb_id": 75656,
+      "title": "惊天魔盗团",
+      "year": 2013
+    },
+    "6558801": {
+      "type": "movie",
+      "tmdb_id": 127533,
+      "title": "浪客剑心",
+      "year": 2012
+    },
+    "6789721": {
+      "type": "movie",
+      "tmdb_id": 104711,
+      "title": "汤姆·索亚历险记",
+      "year": 2011
+    },
+    "6803459": {
+      "type": "tv",
+      "tmdb_id": 39793,
+      "title": "呼叫助产士",
+      "year": 2012
+    },
+    "6844868": {
+      "type": "movie",
+      "tmdb_id": 128246,
+      "title": "狼少年",
+      "year": 2012
+    },
+    "6846893": {
+      "type": "movie",
+      "tmdb_id": 198184,
+      "title": "超能查派",
+      "year": 2015
+    },
+    "6875863": {
+      "type": "movie",
+      "tmdb_id": 105864,
+      "title": "恐龙当家",
+      "year": 2015
+    },
+    "6893932": {
+      "type": "movie",
+      "tmdb_id": 361743,
+      "title": "Top Gun: Maverick",
+      "year": 2022
+    },
+    "6959179": {
+      "type": "movie",
+      "tmdb_id": 136403,
+      "title": "一键成名",
+      "year": 2012
+    },
+    "7051830": {
+      "type": "movie",
+      "tmdb_id": 283366,
+      "title": "佩小姐的奇幻城堡",
+      "year": 2016
+    },
+    "7065211": {
+      "type": "movie",
+      "tmdb_id": 300673,
+      "title": "怒海救援",
+      "year": 2016
+    },
+    "7065334": {
+      "type": "movie",
+      "tmdb_id": 334524,
+      "title": "金矿",
+      "year": 2016
+    },
+    "10428501": {
+      "type": "movie",
+      "tmdb_id": 283566,
+      "title": "福音战士新剧场版：终",
+      "year": 2021
+    },
+    "10432911": {
+      "type": "movie",
+      "tmdb_id": 200085,
+      "title": "流感",
+      "year": 2013
+    },
+    "10438581": {
+      "type": "movie",
+      "tmdb_id": 88284,
+      "title": "芭芭拉",
+      "year": 2012
+    },
+    "10440138": {
+      "type": "movie",
+      "tmdb_id": 135397,
+      "title": "侏罗纪世界",
+      "year": 2015
+    },
+    "10465148": {
+      "type": "movie",
+      "tmdb_id": 114982,
+      "title": "再见语言",
+      "year": 2014
+    },
+    "10563779": {
+      "type": "movie",
+      "tmdb_id": 242454,
+      "title": "嫌疑人",
+      "year": 2013
+    },
+    "10568385": {
+      "type": "movie",
+      "tmdb_id": 293646,
+      "title": "地心营救",
+      "year": 2015
+    },
+    "10574622": {
+      "type": "movie",
+      "tmdb_id": 151743,
+      "title": "人再囧途之泰囧",
+      "year": 2012
+    },
+    "10773239": {
+      "type": "movie",
+      "tmdb_id": 256962,
+      "title": "小男孩",
+      "year": 2015
+    },
+    "10777710": {
+      "type": "tv",
+      "tmdb_id": 45903,
+      "title": "回我的家",
+      "year": 2012
+    },
+    "10792322": {
+      "type": "movie",
+      "tmdb_id": 192141,
+      "title": "无处可逃",
+      "year": 2015
+    },
+    "11026735": {
+      "type": "movie",
+      "tmdb_id": 177572,
+      "title": "超能陆战队",
+      "year": 2014
+    },
+    "11577091": {
+      "type": "tv",
+      "tmdb_id": 60574,
+      "title": "浴血黑帮",
+      "year": 2013
+    },
+    "11614065": {
+      "type": "movie",
+      "tmdb_id": 192136,
+      "title": "曼德拉",
+      "year": 2013
+    },
+    "19955828": {
+      "type": "movie",
+      "tmdb_id": 197082,
+      "title": "穿裘皮的维纳斯",
+      "year": 2013
+    },
+    "20257326": {
+      "type": "movie",
+      "tmdb_id": 136797,
+      "title": "极品飞车",
+      "year": 2014
+    },
+    "20388680": {
+      "type": "movie",
+      "tmdb_id": 191714,
+      "title": "午餐盒",
+      "year": 2013
+    },
+    "21348876": {
+      "type": "movie",
+      "tmdb_id": 203833,
+      "title": "偷书贼",
+      "year": 2013
+    },
+    "21349338": {
+      "type": "movie",
+      "tmdb_id": 590223,
+      "title": "爱与怪物",
+      "year": 2020
+    },
+    "21349734": {
+      "type": "movie",
+      "tmdb_id": 181533,
+      "title": "博物馆奇妙夜3：墓葬秘密",
+      "year": 2014
+    },
+    "21354767": {
+      "type": "movie",
+      "tmdb_id": 405177,
+      "title": "伯纳黛特你去了哪",
+      "year": 2019
+    },
+    "24299620": {
+      "type": "movie",
+      "tmdb_id": 368942,
+      "title": "宁静的热情",
+      "year": 2016
+    },
+    "24470523": {
+      "type": "movie",
+      "tmdb_id": 229297,
+      "title": "魔力月光",
+      "year": 2014
+    },
+    "24522026": {
+      "type": "movie",
+      "tmdb_id": 289222,
+      "title": "动物园长的夫人",
+      "year": 2017
+    },
+    "24523680": {
+      "type": "movie",
+      "tmdb_id": 225728,
+      "title": "麦克白",
+      "year": 2015
+    },
+    "24718802": {
+      "type": "movie",
+      "tmdb_id": 283708,
+      "title": "远离人迹",
+      "year": 2015
+    },
+    "24735062": {
+      "type": "movie",
+      "tmdb_id": 412555,
+      "title": "青春派",
+      "year": 2013
+    },
+    "24741641": {
+      "type": "movie",
+      "tmdb_id": 197629,
+      "title": "人生回环赛",
+      "year": 2013
+    },
+    "25662327": {
+      "type": "movie",
+      "tmdb_id": 388403,
+      "title": "火锅英雄",
+      "year": 2016
+    },
+    "25735492": {
+      "type": "movie",
+      "tmdb_id": 396194,
+      "title": "音魂掠影",
+      "year": 2022
+    },
+    "25745494": {
+      "type": "movie",
+      "tmdb_id": 204668,
+      "title": "灵犬雪莉",
+      "year": 2013
+    },
+    "25762566": {
+      "type": "movie",
+      "tmdb_id": 266058,
+      "title": "道熙呀",
+      "year": 2014
+    },
+    "25766529": {
+      "type": "movie",
+      "tmdb_id": 269494,
+      "title": "走到尽头",
+      "year": 2014
+    },
+    "25786060": {
+      "type": "movie",
+      "tmdb_id": 246655,
+      "title": "X战警：天启",
+      "year": 2016
+    },
+    "25809384": {
+      "type": "movie",
+      "tmdb_id": 257088,
+      "title": "极盗者",
+      "year": 2015
+    },
+    "25821461": {
+      "type": "movie",
+      "tmdb_id": 249688,
+      "title": "旅行终点",
+      "year": 2015
+    },
+    "25821673": {
+      "type": "movie",
+      "tmdb_id": 340357,
+      "title": "阿薇尔与虚构世界",
+      "year": 2015
+    },
+    "25822687": {
+      "type": "tv",
+      "tmdb_id": 61112,
+      "title": "曼哈顿计划",
+      "year": 2014
+    },
+    "25825709": {
+      "type": "movie",
+      "tmdb_id": 271707,
+      "title": "殿堂内望",
+      "year": 2014
+    },
+    "25837262": {
+      "type": "movie",
+      "tmdb_id": 339877,
+      "title": "至爱梵高·星空之谜",
+      "year": 2017
+    },
+    "25843022": {
+      "type": "movie",
+      "tmdb_id": 329805,
+      "title": "我的国王",
+      "year": 2015
+    },
+    "25848328": {
+      "type": "tv",
+      "tmdb_id": 100088,
+      "title": "最后生还者",
+      "year": 2023
+    },
+    "25862300": {
+      "type": "movie",
+      "tmdb_id": 532865,
+      "title": "发掘",
+      "year": 2021
+    },
+    "25868125": {
+      "type": "movie",
+      "tmdb_id": 315162,
+      "title": "穿靴子的猫2",
+      "year": 2022
+    },
+    "25872311": {
+      "type": "movie",
+      "tmdb_id": 258230,
+      "title": "当怪物来敲门",
+      "year": 2016
+    },
+    "25894431": {
+      "type": "movie",
+      "tmdb_id": 330459,
+      "title": "星球大战外传1：侠盗一号",
+      "year": 2016
+    },
+    "25905124": {
+      "type": "movie",
+      "tmdb_id": 319373,
+      "title": "澄沙之味",
+      "year": 2015
+    },
+    "25930137": {
+      "type": "tv",
+      "tmdb_id": 106388,
+      "title": "Shining Girls",
+      "year": 2022
+    },
+    "25964201": {
+      "type": "movie",
+      "tmdb_id": 1071739,
+      "title": "Richard III",
+      "year": 2016
+    },
+    "26087471": {
+      "type": "movie",
+      "tmdb_id": 726759,
+      "title": "俄罗斯方块",
+      "year": 2023
+    },
+    "26145033": {
+      "type": "movie",
+      "tmdb_id": 324849,
+      "title": "乐高蝙蝠侠大电影",
+      "year": 2017
+    },
+    "26147706": {
+      "type": "movie",
+      "tmdb_id": 311054,
+      "title": "花与爱丽丝杀人事件",
+      "year": 2015
+    },
+    "26220650": {
+      "type": "movie",
+      "tmdb_id": 334543,
+      "title": "雄狮",
+      "year": 2016
+    },
+    "26220717": {
+      "type": "movie",
+      "tmdb_id": 300671,
+      "title": "危机13小时",
+      "year": 2016
+    },
+    "26252279": {
+      "type": "tv",
+      "tmdb_id": 70453,
+      "title": "利器",
+      "year": 2018
+    },
+    "26280709": {
+      "type": "movie",
+      "tmdb_id": 310307,
+      "title": "大创业家",
+      "year": 2016
+    },
+    "26296258": {
+      "type": "movie",
+      "tmdb_id": 332872,
+      "title": "胡丽叶塔",
+      "year": 2016
+    },
+    "26305582": {
+      "type": "movie",
+      "tmdb_id": 614934,
+      "title": "猫王",
+      "year": 2022
+    },
+    "26323045": {
+      "type": "movie",
+      "tmdb_id": 324308,
+      "title": "史蒂夫·乔布斯：机器人生",
+      "year": 2015
+    },
+    "26352306": {
+      "type": "movie",
+      "tmdb_id": 325385,
+      "title": "诗无尽头",
+      "year": 2016
+    },
+    "26361853": {
+      "type": "tv",
+      "tmdb_id": 81723,
+      "title": "镀金时代",
+      "year": 2022
+    },
+    "26376558": {
+      "type": "movie",
+      "tmdb_id": 337703,
+      "title": "红海龟",
+      "year": 2016
+    },
+    "26393561": {
+      "type": "movie",
+      "tmdb_id": 348892,
+      "title": "小萝莉的猴神大叔",
+      "year": 2015
+    },
+    "26445216": {
+      "type": "movie",
+      "tmdb_id": 436391,
+      "title": "军舰岛",
+      "year": 2017
+    },
+    "26457368": {
+      "type": "movie",
+      "tmdb_id": 713640,
+      "title": "流浪巴黎",
+      "year": 2016
+    },
+    "26580936": {
+      "type": "movie",
+      "tmdb_id": 419478,
+      "title": "午夜阳光",
+      "year": 2018
+    },
+    "26584673": {
+      "type": "movie",
+      "tmdb_id": 493529,
+      "title": "龙与地下城：侠盗荣耀",
+      "year": 2023
+    },
+    "26596361": {
+      "type": "movie",
+      "tmdb_id": 359129,
+      "title": "布兰卡和弹吉他的人",
+      "year": 2015
+    },
+    "26636537": {
+      "type": "movie",
+      "tmdb_id": 433498,
+      "title": "巴比龙",
+      "year": 2017
+    },
+    "26636712": {
+      "type": "movie",
+      "tmdb_id": 363088,
+      "title": "蚁人2：黄蜂女现身",
+      "year": 2018
+    },
+    "26637615": {
+      "type": "tv",
+      "tmdb_id": 71912,
+      "title": "猎魔人",
+      "year": 2019
+    },
+    "26642033": {
+      "type": "movie",
+      "tmdb_id": 438148,
+      "title": "小黄人大眼萌：神偷奶爸前传",
+      "year": 2022
+    },
+    "26647087": {
+      "type": "movie",
+      "tmdb_id": 389187,
+      "title": "三体",
+      "year": 2023
+    },
+    "26647163": {
+      "type": "movie",
+      "tmdb_id": 432616,
+      "title": "童年的许诺",
+      "year": 2017
+    },
+    "26654145": {
+      "type": "movie",
+      "tmdb_id": 440642,
+      "title": "天际行者",
+      "year": 2017
+    },
+    "26654184": {
+      "type": "movie",
+      "tmdb_id": 1022145,
+      "title": "万里归途",
+      "year": 2022
+    },
+    "26660936": {
+      "type": "tv",
+      "tmdb_id": 67925,
+      "title": "最后的大亨",
+      "year": 2017
+    },
+    "26678509": {
+      "type": "movie",
+      "tmdb_id": 429199,
+      "title": "希望的另一面",
+      "year": 2017
+    },
+    "26683421": {
+      "type": "movie",
+      "tmdb_id": 517991,
+      "title": "特工",
+      "year": 2018
+    },
+    "26694926": {
+      "type": "movie",
+      "tmdb_id": 441130,
+      "title": "狼行者",
+      "year": 2020
+    },
+    "26710371": {
+      "type": "movie",
+      "tmdb_id": 415401,
+      "title": "酒会",
+      "year": 2017
+    },
+    "26710657": {
+      "type": "movie",
+      "tmdb_id": 384581,
+      "title": "芬妮的旅程",
+      "year": 2016
+    },
+    "26718799": {
+      "type": "movie",
+      "tmdb_id": 393624,
+      "title": "官方机密",
+      "year": 2019
+    },
+    "26718836": {
+      "type": "movie",
+      "tmdb_id": 407448,
+      "title": "底特律",
+      "year": 2017
+    },
+    "26721646": {
+      "type": "movie",
+      "tmdb_id": 454652,
+      "title": "柯莱特",
+      "year": 2018
+    },
+    "26726098": {
+      "type": "movie",
+      "tmdb_id": 370964,
+      "title": "他是龙",
+      "year": 2015
+    },
+    "26754233": {
+      "type": "movie",
+      "tmdb_id": 508935,
+      "title": "八佰",
+      "year": 2020
+    },
+    "26775933": {
+      "type": "movie",
+      "tmdb_id": 487786,
+      "title": "暴雪将至",
+      "year": 2017
+    },
+    "26786669": {
+      "type": "movie",
+      "tmdb_id": 522162,
+      "title": "决战中途岛",
+      "year": 2019
+    },
+    "26791452": {
+      "type": "movie",
+      "tmdb_id": 400579,
+      "title": "塔利",
+      "year": 2018
+    },
+    "26793852": {
+      "type": "movie",
+      "tmdb_id": 369523,
+      "title": "信笺故事",
+      "year": 2018
+    },
+    "26794854": {
+      "type": "movie",
+      "tmdb_id": 405931,
+      "title": "帝企鹅日记2：召唤",
+      "year": 2017
+    },
+    "26798436": {
+      "type": "tv",
+      "tmdb_id": 92408,
+      "title": "深夜食堂：东京故事",
+      "year": 2016
+    },
+    "26806528": {
+      "type": "movie",
+      "tmdb_id": 407445,
+      "title": "一呼一吸",
+      "year": 2017
+    },
+    "26822230": {
+      "type": "movie",
+      "tmdb_id": 429189,
+      "title": "摩天轮",
+      "year": 2017
+    },
+    "26848640": {
+      "type": "movie",
+      "tmdb_id": 411728,
+      "title": "教授与疯子",
+      "year": 2019
+    },
+    "26858510": {
+      "type": "movie",
+      "tmdb_id": 508965,
+      "title": "克劳斯：圣诞节的秘密",
+      "year": 2019
+    },
+    "26877492": {
+      "type": "movie",
+      "tmdb_id": 448491,
+      "title": "小森林",
+      "year": 2018
+    },
+    "26921952": {
+      "type": "movie",
+      "tmdb_id": 427416,
+      "title": "校合唱团的秘密",
+      "year": 2016
+    },
+    "26925611": {
+      "type": "movie",
+      "tmdb_id": 508883,
+      "title": "你想活出怎样的人生",
+      "year": 2023
+    },
+    "26944582": {
+      "type": "movie",
+      "tmdb_id": 446894,
+      "title": "雪怪大冒险",
+      "year": 2018
+    },
+    "26949241": {
+      "type": "movie",
+      "tmdb_id": 445571,
+      "title": "游戏之夜",
+      "year": 2018
+    },
+    "26952153": {
+      "type": "movie",
+      "tmdb_id": 434775,
+      "title": "第三度嫌疑人",
+      "year": 2017
+    },
+    "26952994": {
+      "type": "movie",
+      "tmdb_id": 582873,
+      "title": "马丁·伊登",
+      "year": 2019
+    },
+    "26974993": {
+      "type": "movie",
+      "tmdb_id": 443463,
+      "title": "不留痕迹",
+      "year": 2018
+    },
+    "27040157": {
+      "type": "movie",
+      "tmdb_id": 467956,
+      "title": "教授",
+      "year": 2019
+    },
+    "27044303": {
+      "type": "tv",
+      "tmdb_id": 61244,
+      "title": "幸福谷",
+      "year": 2014
+    },
+    "27045119": {
+      "type": "movie",
+      "tmdb_id": 536841,
+      "title": "马拉多纳",
+      "year": 2019
+    },
+    "27064658": {
+      "type": "movie",
+      "tmdb_id": 466282,
+      "title": "致所有我曾爱过的男孩",
+      "year": 2018
+    },
+    "27066152": {
+      "type": "movie",
+      "tmdb_id": 497828,
+      "title": "悲情三角",
+      "year": 2022
+    },
+    "27073291": {
+      "type": "movie",
+      "tmdb_id": 438740,
+      "title": "太空救援",
+      "year": 2017
+    },
+    "27092648": {
+      "type": "movie",
+      "tmdb_id": 405774,
+      "title": "蒙上你的眼",
+      "year": 2018
+    },
+    "27099158": {
+      "type": "tv",
+      "tmdb_id": 90282,
+      "title": "The Morning Show",
+      "year": 2019
+    },
+    "27115166": {
+      "type": "movie",
+      "tmdb_id": 521777,
+      "title": "好小子们",
+      "year": 2019
+    },
+    "27124451": {
+      "type": "movie",
+      "tmdb_id": 660708,
+      "title": "洞",
+      "year": 2021
+    },
+    "27126973": {
+      "type": "tv",
+      "tmdb_id": 106532,
+      "title": "最美的青春",
+      "year": 2018
+    },
+    "27141125": {
+      "type": "tv",
+      "tmdb_id": 73925,
+      "title": "开玩笑",
+      "year": 2018
+    },
+    "27150277": {
+      "type": "movie",
+      "tmdb_id": 937278,
+      "title": "生无可恋的奥托",
+      "year": 2022
+    },
+    "27176742": {
+      "type": "movie",
+      "tmdb_id": 491480,
+      "title": "驭风男孩",
+      "year": 2019
+    },
+    "27194292": {
+      "type": "tv",
+      "tmdb_id": 66732,
+      "title": "怪奇物语",
+      "year": 2016
+    },
+    "27198855": {
+      "type": "movie",
+      "tmdb_id": 447856,
+      "title": "印度合伙人",
+      "year": 2018
+    },
+    "27199894": {
+      "type": "movie",
+      "tmdb_id": 502356,
+      "title": "超级马力欧兄弟大电影",
+      "year": 2023
+    },
+    "27597250": {
+      "type": "movie",
+      "tmdb_id": 567646,
+      "title": "极限职业",
+      "year": 2019
+    },
+    "27608785": {
+      "type": "movie",
+      "tmdb_id": 454693,
+      "title": "沉默的教室",
+      "year": 2018
+    },
+    "30128916": {
+      "type": "movie",
+      "tmdb_id": 638032,
+      "title": "夺冠",
+      "year": 2020
+    },
+    "30165311": {
+      "type": "movie",
+      "tmdb_id": 629542,
+      "title": "坏蛋联盟",
+      "year": 2022
+    },
+    "30166972": {
+      "type": "movie",
+      "tmdb_id": 575813,
+      "title": "少年的你",
+      "year": 2019
+    },
+    "30167633": {
+      "type": "movie",
+      "tmdb_id": 511322,
+      "title": "谎言大师",
+      "year": 2019
+    },
+    "30188243": {
+      "type": "movie",
+      "tmdb_id": 484747,
+      "title": "不能说的游戏",
+      "year": 2018
+    },
+    "30198955": {
+      "type": "tv",
+      "tmdb_id": 95403,
+      "title": "边缘世界",
+      "year": 2022
+    },
+    "30211551": {
+      "type": "movie",
+      "tmdb_id": 581528,
+      "title": "恶人传",
+      "year": 2019
+    },
+    "30214145": {
+      "type": "movie",
+      "tmdb_id": 579974,
+      "title": "RRR：双雄起义",
+      "year": 2022
+    },
+    "30220620": {
+      "type": "movie",
+      "tmdb_id": 619594,
+      "title": "职场心计文学梦",
+      "year": 2020
+    },
+    "30223100": {
+      "type": "tv",
+      "tmdb_id": 79525,
+      "title": "最后的舞动",
+      "year": 2020
+    },
+    "30267287": {
+      "type": "movie",
+      "tmdb_id": 619803,
+      "title": "犯罪都市2",
+      "year": 2022
+    },
+    "30270746": {
+      "type": "movie",
+      "tmdb_id": 582311,
+      "title": "寒单",
+      "year": 2019
+    },
+    "30310218": {
+      "type": "movie",
+      "tmdb_id": 579245,
+      "title": "标准之外",
+      "year": 2019
+    },
+    "30314127": {
+      "type": "movie",
+      "tmdb_id": 545609,
+      "title": "惊天营救",
+      "year": 2020
+    },
+    "30330688": {
+      "type": "movie",
+      "tmdb_id": 527435,
+      "title": "拯救圣诞记",
+      "year": 2018
+    },
+    "30331149": {
+      "type": "movie",
+      "tmdb_id": 573699,
+      "title": "白蛇：缘起",
+      "year": 2019
+    },
+    "30345226": {
+      "type": "movie",
+      "tmdb_id": 530079,
+      "title": "若能与你共乘海浪之上",
+      "year": 2019
+    },
+    "30346880": {
+      "type": "movie",
+      "tmdb_id": 627725,
+      "title": "银行家",
+      "year": 2020
+    },
+    "30361878": {
+      "type": "movie",
+      "tmdb_id": 556678,
+      "title": "爱玛",
+      "year": 2020
+    },
+    "30376895": {
+      "type": "tv",
+      "tmdb_id": 83867,
+      "title": "Andor",
+      "year": 2022
+    },
+    "30391766": {
+      "type": "movie",
+      "tmdb_id": 566222,
+      "title": "隐私大盗",
+      "year": 2019
+    },
+    "30394807": {
+      "type": "movie",
+      "tmdb_id": 596302,
+      "title": "蜡笔小新：新婚旅行风暴～夺回广志大作战～",
+      "year": 2019
+    },
+    "30403645": {
+      "type": "movie",
+      "tmdb_id": 680813,
+      "title": "逃亡",
+      "year": 2021
+    },
+    "30489824": {
+      "type": "tv",
+      "tmdb_id": 110382,
+      "title": "Pachinko",
+      "year": 2022
+    },
+    "33455421": {
+      "type": "movie",
+      "tmdb_id": 603692,
+      "title": "疾速追杀4",
+      "year": 2023
+    },
+    "33477335": {
+      "type": "tv",
+      "tmdb_id": 89905,
+      "title": "正常人",
+      "year": 2020
+    },
+    "34430141": {
+      "type": "movie",
+      "tmdb_id": 642538,
+      "title": "平家物语：犬王",
+      "year": 2022
+    },
+    "34463874": {
+      "type": "tv",
+      "tmdb_id": 85552,
+      "title": "亢奋",
+      "year": 2019
+    },
+    "34467461": {
+      "type": "movie",
+      "tmdb_id": 615777,
+      "title": "巴比伦",
+      "year": 2022
+    },
+    "34477588": {
+      "type": "tv",
+      "tmdb_id": 110316,
+      "title": "弥留之国的爱丽丝",
+      "year": 2020
+    },
+    "34670642": {
+      "type": "tv",
+      "tmdb_id": 95838,
+      "title": "我的事说来话长",
+      "year": 2019
+    },
+    "34679696": {
+      "type": "movie",
+      "tmdb_id": 618219,
+      "title": "血战摩苏尔",
+      "year": 2019
+    },
+    "34788065": {
+      "type": "movie",
+      "tmdb_id": 576920,
+      "title": "银色溜冰鞋",
+      "year": 2020
+    },
+    "34825964": {
+      "type": "tv",
+      "tmdb_id": 94997,
+      "title": "权力的游戏前传：龙族",
+      "year": 2022
+    },
+    "34858078": {
+      "type": "tv",
+      "tmdb_id": 96648,
+      "title": "甜蜜家园",
+      "year": 2020
+    },
+    "34890017": {
+      "type": "tv",
+      "tmdb_id": 95480,
+      "title": "Slow Horses",
+      "year": 2022
+    },
+    "34914769": {
+      "type": "tv",
+      "tmdb_id": 70796,
+      "title": "了不起的麦瑟尔夫人",
+      "year": 2017
+    },
+    "34951007": {
+      "type": "tv",
+      "tmdb_id": 60059,
+      "title": "风骚律师",
+      "year": 2015
+    },
+    "34951103": {
+      "type": "tv",
+      "tmdb_id": 134983,
+      "title": "功勋",
+      "year": 2021
+    },
+    "34954093": {
+      "type": "movie",
+      "tmdb_id": 1012907,
+      "title": "妈妈！",
+      "year": 2022
+    },
+    "34954351": {
+      "type": "movie",
+      "tmdb_id": 670243,
+      "title": "永别了，霍夫曼先生",
+      "year": 2022
+    },
+    "34963448": {
+      "type": "tv",
+      "tmdb_id": 120911,
+      "title": "The Terminal List",
+      "year": 2022
+    },
+    "34966922": {
+      "type": "movie",
+      "tmdb_id": 664332,
+      "title": "甘古拜·卡蒂娅瓦迪",
+      "year": 2022
+    },
+    "34967154": {
+      "type": "movie",
+      "tmdb_id": 726620,
+      "title": "把我关起来",
+      "year": 2020
+    },
+    "34969348": {
+      "type": "movie",
+      "tmdb_id": 674324,
+      "title": "伊尼舍林的报丧女妖",
+      "year": 2022
+    },
+    "34994748": {
+      "type": "movie",
+      "tmdb_id": 682587,
+      "title": "登山家",
+      "year": 2021
+    },
+    "35008440": {
+      "type": "movie",
+      "tmdb_id": 820446,
+      "title": "唐顿庄园2",
+      "year": 2022
+    },
+    "35038640": {
+      "type": "movie",
+      "tmdb_id": 804251,
+      "title": "阿尔卡拉斯",
+      "year": 2022
+    },
+    "35042913": {
+      "type": "tv",
+      "tmdb_id": 63247,
+      "title": "西部世界",
+      "year": 2016
+    },
+    "35056243": {
+      "type": "movie",
+      "tmdb_id": 698948,
+      "title": "十三条命",
+      "year": 2022
+    },
+    "35073886": {
+      "type": "movie",
+      "tmdb_id": 705996,
+      "title": "分手的决心",
+      "year": 2022
+    },
+    "35073914": {
+      "type": "movie",
+      "tmdb_id": 705861,
+      "title": "必胜球探",
+      "year": 2022
+    },
+    "35118954": {
+      "type": "movie",
+      "tmdb_id": 718930,
+      "title": "杀手疾风号",
+      "year": 2022
+    },
+    "35134230": {
+      "type": "movie",
+      "tmdb_id": 597922,
+      "title": "有史以来最棒的啤酒运送",
+      "year": 2022
+    },
+    "35154050": {
+      "type": "tv",
+      "tmdb_id": 76479,
+      "title": "黑袍纠察队",
+      "year": 2019
+    },
+    "35154761": {
+      "type": "tv",
+      "tmdb_id": 130766,
+      "title": "喜鹊谋杀案",
+      "year": 2022
+    },
+    "35160926": {
+      "type": "movie",
+      "tmdb_id": 727340,
+      "title": "狩猎",
+      "year": 2022
+    },
+    "35162122": {
+      "type": "movie",
+      "tmdb_id": 728928,
+      "title": "76天",
+      "year": 2020
+    },
+    "35185752": {
+      "type": "movie",
+      "tmdb_id": 682110,
+      "title": "我的章鱼老师",
+      "year": 2020
+    },
+    "35198592": {
+      "type": "tv",
+      "tmdb_id": 108664,
+      "title": "医院五日",
+      "year": 2022
+    },
+    "35202368": {
+      "type": "movie",
+      "tmdb_id": 760774,
+      "title": "一生",
+      "year": 2023
+    },
+    "35205617": {
+      "type": "movie",
+      "tmdb_id": 901563,
+      "title": "亲密",
+      "year": 2022
+    },
+    "35207856": {
+      "type": "tv",
+      "tmdb_id": 156568,
+      "title": "人世间",
+      "year": 2022
+    },
+    "35208463": {
+      "type": "movie",
+      "tmdb_id": 1109586,
+      "title": "三大队",
+      "year": 2023
+    },
+    "35209733": {
+      "type": "tv",
+      "tmdb_id": 124817,
+      "title": "理想照耀中国",
+      "year": 2021
+    },
+    "35211730": {
+      "type": "movie",
+      "tmdb_id": 747779,
+      "title": "晨光正好",
+      "year": 2022
+    },
+    "35212079": {
+      "type": "movie",
+      "tmdb_id": 746333,
+      "title": "谁是超级英雄",
+      "year": 2022
+    },
+    "35215390": {
+      "type": "movie",
+      "tmdb_id": 799288,
+      "title": "狙击手",
+      "year": 2022
+    },
+    "35221425": {
+      "type": "movie",
+      "tmdb_id": 900379,
+      "title": "红色天空",
+      "year": 2023
+    },
+    "35230630": {
+      "type": "movie",
+      "tmdb_id": 749927,
+      "title": "河畔须臾",
+      "year": 2021
+    },
+    "35230876": {
+      "type": "movie",
+      "tmdb_id": 682507,
+      "title": "沼泽深处的女孩",
+      "year": 2022
+    },
+    "35232070": {
+      "type": "tv",
+      "tmdb_id": 136440,
+      "title": "平原上的摩西",
+      "year": 2023
+    },
+    "35235813": {
+      "type": "movie",
+      "tmdb_id": 758330,
+      "title": "祝你好运，里奥·格兰德",
+      "year": 2022
+    },
+    "35267208": {
+      "type": "movie",
+      "tmdb_id": 842675,
+      "title": "流浪地球2",
+      "year": 2023
+    },
+    "35275350": {
+      "type": "movie",
+      "tmdb_id": 834742,
+      "title": "First Love",
+      "year": 2022
+    },
+    "35284249": {
+      "type": "tv",
+      "tmdb_id": 232125,
+      "title": "我是格鲁特",
+      "year": 2022
+    },
+    "35288821": {
+      "type": "movie",
+      "tmdb_id": 776557,
+      "title": "以火书写",
+      "year": 2021
+    },
+    "35290372": {
+      "type": "movie",
+      "tmdb_id": 777245,
+      "title": "女人们的谈话",
+      "year": 2022
+    },
+    "35291777": {
+      "type": "tv",
+      "tmdb_id": 115036,
+      "title": "波巴·费特之书",
+      "year": 2021
+    },
+    "35293160": {
+      "type": "movie",
+      "tmdb_id": 760747,
+      "title": "在糟糕的日子里",
+      "year": 2021
+    },
+    "35295566": {
+      "type": "tv",
+      "tmdb_id": 121659,
+      "title": "幽游白书",
+      "year": 2023
+    },
+    "35307437": {
+      "type": "tv",
+      "tmdb_id": 139797,
+      "title": "猎罪图鉴",
+      "year": 2022
+    },
+    "35307624": {
+      "type": "movie",
+      "tmdb_id": 781816,
+      "title": "渔港的肉子酱",
+      "year": 2021
+    },
+    "35311878": {
+      "type": "movie",
+      "tmdb_id": 1005251,
+      "title": "正义回廊",
+      "year": 2022
+    },
+    "35314632": {
+      "type": "tv",
+      "tmdb_id": 136283,
+      "title": "黑暗荣耀",
+      "year": 2022
+    },
+    "35320338": {
+      "type": "movie",
+      "tmdb_id": 946127,
+      "title": "猎鹰湖",
+      "year": 2022
+    },
+    "35322421": {
+      "type": "tv",
+      "tmdb_id": 154887,
+      "title": "我的解放日志",
+      "year": 2022
+    },
+    "35338562": {
+      "type": "movie",
+      "tmdb_id": 833417,
+      "title": "全职",
+      "year": 2022
+    },
+    "35350109": {
+      "type": "movie",
+      "tmdb_id": 792307,
+      "title": "可怜的东西",
+      "year": 2023
+    },
+    "35364243": {
+      "type": "tv",
+      "tmdb_id": 119051,
+      "title": "Wednesday",
+      "year": 2022
+    },
+    "35367386": {
+      "type": "movie",
+      "tmdb_id": 555285,
+      "title": "上帝在吗？我是玛格丽特",
+      "year": 2023
+    },
+    "35371261": {
+      "type": "movie",
+      "tmdb_id": 916224,
+      "title": "铃芽之旅",
+      "year": 2022
+    },
+    "35372415": {
+      "type": "movie",
+      "tmdb_id": 799876,
+      "title": "套装",
+      "year": 2022
+    },
+    "35373286": {
+      "type": "movie",
+      "tmdb_id": 803700,
+      "title": "八座山",
+      "year": 2022
+    },
+    "35385225": {
+      "type": "movie",
+      "tmdb_id": 895549,
+      "title": "泳不放弃",
+      "year": 2023
+    },
+    "35390098": {
+      "type": "movie",
+      "tmdb_id": 804095,
+      "title": "造梦之家",
+      "year": 2022
+    },
+    "35404025": {
+      "type": "movie",
+      "tmdb_id": 807070,
+      "title": "旋涡",
+      "year": 2021
+    },
+    "35414572": {
+      "type": "tv",
+      "tmdb_id": 129888,
+      "title": "二十五，二十一",
+      "year": 2022
+    },
+    "35414623": {
+      "type": "movie",
+      "tmdb_id": 810693,
+      "title": "咒术回战0",
+      "year": 2021
+    },
+    "35429466": {
+      "type": "tv",
+      "tmdb_id": 203042,
+      "title": "警察荣誉",
+      "year": 2022
+    },
+    "35430833": {
+      "type": "movie",
+      "tmdb_id": 817758,
+      "title": "塔尔",
+      "year": 2022
+    },
+    "35432330": {
+      "type": "movie",
+      "tmdb_id": 589026,
+      "title": "琳达想吃鸡肉！",
+      "year": 2023
+    },
+    "35441274": {
+      "type": "movie",
+      "tmdb_id": 842356,
+      "title": "雪豹女王",
+      "year": 2021
+    },
+    "35457272": {
+      "type": "movie",
+      "tmdb_id": 945703,
+      "title": "保你平安",
+      "year": 2023
+    },
+    "35460157": {
+      "type": "movie",
+      "tmdb_id": 945664,
+      "title": "人生大事",
+      "year": 2022
+    },
+    "35465232": {
+      "type": "tv",
+      "tmdb_id": 210757,
+      "title": "狂飙",
+      "year": 2023
+    },
+    "35493136": {
+      "type": "movie",
+      "tmdb_id": 837881,
+      "title": "她说",
+      "year": 2022
+    },
+    "35496212": {
+      "type": "movie",
+      "tmdb_id": 840430,
+      "title": "留校联盟",
+      "year": 2023
+    },
+    "35506331": {
+      "type": "movie",
+      "tmdb_id": 972545,
+      "title": "晚安机遇号",
+      "year": 2022
+    },
+    "35521887": {
+      "type": "tv",
+      "tmdb_id": 129536,
+      "title": "伊甸园：最后的秘境",
+      "year": 2021
+    },
+    "35524446": {
+      "type": "tv",
+      "tmdb_id": 197067,
+      "title": "非常律师禹英禑",
+      "year": 2022
+    },
+    "35556001": {
+      "type": "movie",
+      "tmdb_id": 1006485,
+      "title": "热烈",
+      "year": 2023
+    },
+    "35580293": {
+      "type": "movie",
+      "tmdb_id": 869025,
+      "title": "雷蒙德和雷",
+      "year": 2022
+    },
+    "35604644": {
+      "type": "tv",
+      "tmdb_id": 197235,
+      "title": "她和她的她",
+      "year": 2022
+    },
+    "35662223": {
+      "type": "tv",
+      "tmdb_id": 216424,
+      "title": "去有风的地方",
+      "year": 2023
+    },
+    "35693512": {
+      "type": "movie",
+      "tmdb_id": 906126,
+      "title": "绝境盟约",
+      "year": 2023
+    },
+    "35694766": {
+      "type": "movie",
+      "tmdb_id": 913823,
+      "title": "火山挚恋",
+      "year": 2022
+    },
+    "35699754": {
+      "type": "movie",
+      "tmdb_id": 919570,
+      "title": "核磁共振",
+      "year": 2022
+    },
+    "35700733": {
+      "type": "movie",
+      "tmdb_id": 916405,
+      "title": "夏日细语",
+      "year": 2022
+    },
+    "35724543": {
+      "type": "movie",
+      "tmdb_id": 923939,
+      "title": "亨利·休格的神奇故事",
+      "year": 2023
+    },
+    "35725869": {
+      "type": "movie",
+      "tmdb_id": 1173076,
+      "title": "年会不能停！",
+      "year": 2023
+    },
+    "35727023": {
+      "type": "tv",
+      "tmdb_id": 154916,
+      "title": "舞伎家的料理人",
+      "year": 2023
+    },
+    "35729393": {
+      "type": "movie",
+      "tmdb_id": 787781,
+      "title": "猜谜女士",
+      "year": 2023
+    },
+    "35743103": {
+      "type": "movie",
+      "tmdb_id": 928713,
+      "title": "小说家的电影",
+      "year": 2022
+    },
+    "35750263": {
+      "type": "movie",
+      "tmdb_id": 889699,
+      "title": "圣蛛",
+      "year": 2022
+    },
+    "35766491": {
+      "type": "movie",
+      "tmdb_id": 1066298,
+      "title": "满江红",
+      "year": 2023
+    },
+    "35776100": {
+      "type": "tv",
+      "tmdb_id": 199318,
+      "title": "Bad Sisters",
+      "year": 2022
+    },
+    "35797506": {
+      "type": "movie",
+      "tmdb_id": 952438,
+      "title": "鱼之子",
+      "year": 2022
+    },
+    "35801819": {
+      "type": "movie",
+      "tmdb_id": 949423,
+      "title": "珀尔",
+      "year": 2022
+    },
+    "35802912": {
+      "type": "movie",
+      "tmdb_id": 912908,
+      "title": "复仇狗联盟",
+      "year": 2023
+    },
+    "35814636": {
+      "type": "tv",
+      "tmdb_id": 153312,
+      "title": "塔尔萨之王",
+      "year": 2022
+    },
+    "35861910": {
+      "type": "tv",
+      "tmdb_id": 197125,
+      "title": "Constellation",
+      "year": 2024
+    },
+    "35869654": {
+      "type": "movie",
+      "tmdb_id": 957457,
+      "title": "月球时代白日梦",
+      "year": 2022
+    },
+    "35876302": {
+      "type": "movie",
+      "tmdb_id": 965150,
+      "title": "晒后假日",
+      "year": 2022
+    },
+    "35882880": {
+      "type": "movie",
+      "tmdb_id": 792358,
+      "title": "宿敌",
+      "year": 2022
+    },
+    "35914259": {
+      "type": "movie",
+      "tmdb_id": 990326,
+      "title": "毒舌律师",
+      "year": 2023
+    },
+    "35928797": {
+      "type": "movie",
+      "tmdb_id": 986280,
+      "title": "枯叶",
+      "year": 2023
+    },
+    "35935299": {
+      "type": "tv",
+      "tmdb_id": 204284,
+      "title": "人生彩排",
+      "year": 2022
+    },
+    "35981370": {
+      "type": "movie",
+      "tmdb_id": 997294,
+      "title": "闭上眼睛",
+      "year": 2023
+    },
+    "36081094": {
+      "type": "movie",
+      "tmdb_id": 1229349,
+      "title": "热辣滚烫",
+      "year": 2024
+    },
+    "36092435": {
+      "type": "movie",
+      "tmdb_id": 626332,
+      "title": "热辣奇多的诞生",
+      "year": 2023
+    },
+    "36140095": {
+      "type": "tv",
+      "tmdb_id": 226197,
+      "title": "新闻女王",
+      "year": 2023
+    },
+    "36156235": {
+      "type": "tv",
+      "tmdb_id": 215197,
+      "title": "重启人生",
+      "year": 2023
+    },
+    "36161478": {
+      "type": "movie",
+      "tmdb_id": 1072371,
+      "title": "小镇幽浮",
+      "year": 2023
+    },
+    "36171814": {
+      "type": "movie",
+      "tmdb_id": 995133,
+      "title": "男孩、鼹鼠、狐狸和马",
+      "year": 2022
+    },
+    "36181570": {
+      "type": "movie",
+      "tmdb_id": 1058647,
+      "title": "最深的呼吸",
+      "year": 2023
+    },
+    "36212964": {
+      "type": "movie",
+      "tmdb_id": 1016084,
+      "title": "黑莓传奇",
+      "year": 2023
+    },
+    "36217805": {
+      "type": "movie",
+      "tmdb_id": 1060604,
+      "title": "Kiddo",
+      "year": 2022
+    },
+    "36281663": {
+      "type": "movie",
+      "tmdb_id": 1085779,
+      "title": "奶奶跟外婆",
+      "year": 2024
+    },
+    "36285072": {
+      "type": "tv",
+      "tmdb_id": 221301,
+      "title": "宝可梦 礼宾部",
+      "year": 2023
+    },
+    "36395695": {
+      "type": "tv",
+      "tmdb_id": 225780,
+      "title": "小镇警花",
+      "year": 2023
+    },
+    "36538847": {
+      "type": "movie",
+      "tmdb_id": 1160164,
+      "title": "泰勒·斯威夫特：时代巡回演唱会",
+      "year": 2023
+    },
+    "36619921": {
+      "type": "movie",
+      "tmdb_id": 1275081,
+      "title": "再会长江",
+      "year": 2024
+    }
+  },
+  "mapping_count": 541
 }
