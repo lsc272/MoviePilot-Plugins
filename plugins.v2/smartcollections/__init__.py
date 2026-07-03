@@ -69,7 +69,7 @@ class SmartCollections(_PluginBase):
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.5.0"
+    plugin_version = "0.5.1"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -110,6 +110,19 @@ class SmartCollections(_PluginBase):
             "running": False,
             "progress": 0,
             "message": "",
+            "result": None,
+            "error": None,
+        }
+        self._batch_sync_status_lock = threading.RLock()
+        self._batch_sync_status: Dict[str, Any] = {
+            "task_id": None,
+            "running": False,
+            "progress": 0,
+            "message": "",
+            "total": 0,
+            "completed": 0,
+            "succeeded": 0,
+            "failed": 0,
             "result": None,
             "error": None,
         }
@@ -310,7 +323,14 @@ class SmartCollections(_PluginBase):
                 "endpoint": self.api_batch_sync,
                 "methods": ["POST"],
                 "auth": "bear",
-                "summary": "批量预览并同步片单",
+                "summary": "启动后台批量预览并同步片单",
+            },
+            {
+                "path": "/batch/sync/status",
+                "endpoint": self.api_batch_sync_status,
+                "methods": ["GET"],
+                "auth": "bear",
+                "summary": "查询后台批量同步进度",
             },
             {
                 "path": "/templates/save",
@@ -824,6 +844,7 @@ class SmartCollections(_PluginBase):
                 "collection_tools": collection_tools,
                 "preview_task": self._preview_task_snapshot(include_result=False),
                 "subscription_batch": self.api_subscribe_missing_status()["data"],
+                "batch_sync": self.api_batch_sync_status()["data"],
                 "history": self.get_data("history") or [],
                 "running": self._run_lock.locked(),
                 "server": self._emby_server,
@@ -982,35 +1003,154 @@ class SmartCollections(_PluginBase):
             return {"success": False, "message": "请至少选择一个片单"}
         if not self._run_lock.acquire(blocking=False):
             return {"success": False, "message": "已有同步或批量任务正在运行"}
+        task_id = uuid.uuid4().hex
+        with self._batch_sync_status_lock:
+            self._batch_sync_status = {
+                "task_id": task_id,
+                "running": True,
+                "progress": 0,
+                "message": f"准备同步 {len(sources)} 个片单",
+                "total": len(sources),
+                "completed": 0,
+                "succeeded": 0,
+                "failed": 0,
+                "result": None,
+                "error": None,
+            }
+        try:
+            threading.Thread(
+                target=self._run_batch_sync,
+                args=(task_id, [dict(item or {}) for item in sources]),
+                name="SmartCollectionsBatchSync",
+                daemon=True,
+            ).start()
+            return {
+                "success": True,
+                "data": {"task_id": task_id, "total": len(sources)},
+                "message": f"已在后台开始同步 {len(sources)} 个片单",
+            }
+        except Exception as exc:
+            with self._batch_sync_status_lock:
+                self._batch_sync_status.update(
+                    {
+                        "running": False,
+                        "message": "批量同步任务启动失败",
+                        "error": str(exc),
+                    }
+                )
+            self._run_lock.release()
+            return {"success": False, "message": str(exc)}
+
+    def api_batch_sync_status(self) -> Dict[str, Any]:
+        with self._batch_sync_status_lock:
+            return {"success": True, "data": dict(self._batch_sync_status)}
+
+    def _run_batch_sync(
+        self, task_id: str, sources: List[Dict[str, Any]]
+    ) -> None:
         results: List[dict] = []
+        total = len(sources)
         try:
             context = self._preview_context()
-            for source in sources:
+            for index, source in enumerate(sources, start=1):
+                source_name = str(
+                    source.get("name") or source.get("title") or "未命名片单"
+                )
+                with self._batch_sync_status_lock:
+                    if self._batch_sync_status.get("task_id") != task_id:
+                        return
+                    self._batch_sync_status.update(
+                        {"message": f"正在处理 {index}/{total}：{source_name}"}
+                )
                 try:
-                    spec = self._spec_from_payload(source or {})
-                    preview = self._build_preview(spec, context=context)
-                    results.append(
-                        self._sync_preview_data(
-                            preview=preview,
-                            name=spec.name or preview.get("title"),
-                            mode=spec.mode or self._sync_mode,
+                    spec = self._spec_from_payload(source)
+                    def report_item_progress(
+                        item_progress: int, item_message: str
+                    ) -> None:
+                        overall = (
+                            (index - 1) + max(0, min(item_progress, 100)) / 100
+                        ) / max(1, total) * 100
+                        with self._batch_sync_status_lock:
+                            self._batch_sync_status.update(
+                                {
+                                    "progress": round(overall, 1),
+                                    "message": (
+                                        f"{index}/{total} {source_name}：{item_message}"
+                                    ),
+                                }
+                            )
+
+                    preview = self._build_preview(
+                        spec,
+                        context=context,
+                        progress=report_item_progress,
+                    )
+                    with self._batch_sync_status_lock:
+                        self._batch_sync_status.update(
+                            {"message": f"{index}/{total} {source_name}：正在同步到 Emby…"}
                         )
+                    item_result = self._sync_preview_data(
+                        preview=preview,
+                        name=spec.name or preview.get("title"),
+                        mode=spec.mode or self._sync_mode,
                     )
                 except Exception as exc:
-                    results.append(
+                    logger.exception(f"智能合集批量同步 {source_name} 失败：{exc}")
+                    item_result = {
+                        "success": False,
+                        "name": source_name,
+                        "error": str(exc),
+                    }
+                results.append(item_result)
+                succeeded = sum(bool(item.get("success")) for item in results)
+                with self._batch_sync_status_lock:
+                    self._batch_sync_status.update(
                         {
-                            "success": False,
-                            "name": (source or {}).get("name")
-                            or (source or {}).get("title")
-                            or "未命名片单",
-                            "error": str(exc),
+                            "progress": round(index / max(1, total) * 100, 1),
+                            "completed": index,
+                            "succeeded": succeeded,
+                            "failed": index - succeeded,
                         }
                     )
-            return {
-                "success": any(item.get("success") for item in results),
-                "data": results,
-                "message": f"批量任务完成：成功 {sum(bool(item.get('success')) for item in results)} / {len(results)}",
-            }
+            succeeded = sum(bool(item.get("success")) for item in results)
+            with self._batch_sync_status_lock:
+                self._batch_sync_status.update(
+                    {
+                        "running": False,
+                        "progress": 100,
+                        "message": f"批量同步完成：成功 {succeeded} / {total}",
+                        "completed": total,
+                        "succeeded": succeeded,
+                        "failed": total - succeeded,
+                        "result": results,
+                        "error": None,
+                    }
+                )
+            try:
+                lines = [
+                    f"{'✅' if item.get('success') else '❌'} "
+                    f"{item.get('name') or '未命名片单'}"
+                    + (f"：{item.get('error')}" if item.get("error") else "")
+                    for item in results[:20]
+                ]
+                self.post_message(
+                    mtype=NotificationType.Plugin,
+                    title="智能合集批量同步完成",
+                    text=f"成功 {succeeded} / {total}\n" + "\n".join(lines),
+                )
+            except Exception as exc:
+                logger.debug(f"发送智能合集批量同步通知失败：{exc}")
+        except Exception as exc:
+            logger.exception(f"智能合集批量同步任务失败：{exc}")
+            with self._batch_sync_status_lock:
+                self._batch_sync_status.update(
+                    {
+                        "running": False,
+                        "message": "批量同步任务失败",
+                        "result": results,
+                        "error": str(exc),
+                    }
+                )
         finally:
             self._run_lock.release()
 

@@ -31,6 +31,8 @@ const enlargedPosterTitle = ref('')
 const subscribingKeys = ref([])
 const subscribedKeys = ref([])
 const bulkSubscriptionStatus = ref({ running: false, progress: 0, total: 0, subscribed: 0, failed: 0 })
+const batchSyncStatus = ref({ running: false, progress: 0, total: 0, completed: 0, succeeded: 0, failed: 0 })
+const batchSyncPolling = ref(false)
 const posterDialog = ref(false)
 const posterCollection = ref(null)
 const posterFile = ref(null)
@@ -78,6 +80,7 @@ async function loadStatus() {
   try {
     status.value = assertResponse(await props.api.get(`${pluginBase.value}/status`)) || status.value
     bulkSubscriptionStatus.value = status.value.subscription_batch || bulkSubscriptionStatus.value
+    batchSyncStatus.value = status.value.batch_sync || batchSyncStatus.value
     previewTask.value = status.value.preview_task || previewTask.value
     managedScheduleEnabled.value = Boolean(status.value.managed_schedule?.enabled)
     managedScheduleCron.value = status.value.managed_schedule?.cron || '0 4 * * *'
@@ -90,6 +93,7 @@ async function loadStatus() {
       selectedBackupId.value = ''
     }
     if (status.value.catalog_refreshing) refreshCatalog()
+    if (batchSyncStatus.value.running) void monitorBatchSync()
   } catch (err) {
     error.value = err?.message || '页面数据加载失败'
   } finally {
@@ -196,16 +200,47 @@ async function batchSync() {
   actionLoading.value = 'batch-sync'
   clearMessages()
   try {
-    const response = await props.api.post(`${pluginBase.value}/batch/sync`, { sources })
-    const results = unwrapResponse(response) || []
-    if (response?.success === false && !results.length) throw new Error(response.message || '批量同步失败')
-    const ok = results.filter(item => item.success).length
-    await loadStatus()
-    notice.value = `批量同步完成：成功 ${ok} / ${results.length}`
+    const started = assertResponse(await props.api.post(`${pluginBase.value}/batch/sync`, { sources })) || {}
+    batchSyncStatus.value = {
+      running: true,
+      progress: 0,
+      total: started.total || sources.length,
+      completed: 0,
+      succeeded: 0,
+      failed: 0,
+      task_id: started.task_id,
+      message: `准备同步 ${started.total || sources.length} 个片单`,
+    }
+    notice.value = '批量同步已转入后台运行，可以离开此页面；完成后会发送通知。'
+    void monitorBatchSync()
   } catch (err) {
     error.value = err?.message || '批量同步失败'
   } finally {
     actionLoading.value = ''
+  }
+}
+
+async function monitorBatchSync() {
+  if (batchSyncPolling.value) return
+  batchSyncPolling.value = true
+  try {
+    for (let attempt = 0; attempt < 14400; attempt += 1) {
+      const data = assertResponse(await props.api.get(`${pluginBase.value}/batch/sync/status`)) || {}
+      batchSyncStatus.value = data
+      if (!data.running) {
+        if (data.error) throw new Error(data.error)
+        const results = data.result || []
+        await loadStatus()
+        notice.value = data.message || `批量同步完成：成功 ${results.filter(item => item.success).length} / ${results.length}`
+        return
+      }
+      await wait(1000)
+    }
+    throw new Error('批量同步状态查询超时；后台任务可能仍在运行')
+  } catch (err) {
+    error.value = err?.message || '查询批量同步进度失败'
+  } finally {
+    batchSyncPolling.value = false
   }
 }
 
@@ -620,6 +655,14 @@ onMounted(loadStatus)
       </div>
       <VProgressLinear :model-value="previewTask.progress || 0" color="primary" rounded height="8" />
     </VAlert>
+    <VAlert v-if="batchSyncStatus.running" type="info" variant="tonal" class="mb-4">
+      <div class="d-flex justify-space-between text-body-2 mb-2">
+        <span>{{ batchSyncStatus.message || '正在后台批量同步…' }}</span>
+        <span>{{ batchSyncStatus.completed || 0 }}/{{ batchSyncStatus.total || 0 }} · {{ batchSyncStatus.progress || 0 }}%</span>
+      </div>
+      <VProgressLinear :model-value="batchSyncStatus.progress || 0" color="primary" rounded height="8" />
+      <div class="text-caption text-medium-emphasis mt-2">已成功 {{ batchSyncStatus.succeeded || 0 }}，失败 {{ batchSyncStatus.failed || 0 }}；关闭页面不会中断任务。</div>
+    </VAlert>
 
     <VCard rounded="xl" variant="outlined" class="mb-5">
       <VTabs v-model="tab" color="primary" grow>
@@ -639,7 +682,7 @@ onMounted(loadStatus)
             </div>
             <VSpacer />
             <VBtn variant="text" prepend-icon="mdi-select-all" @click="selectAllCurrent">{{ allCurrentSelected ? '取消本页全选' : '本页全选' }}</VBtn>
-            <VBtn color="primary" prepend-icon="mdi-sync" :loading="actionLoading === 'batch-sync'" @click="batchSync">批量同步（{{ selectedSources.length }}）</VBtn>
+            <VBtn color="primary" prepend-icon="mdi-sync" :disabled="batchSyncStatus.running" :loading="actionLoading === 'batch-sync' || batchSyncStatus.running" @click="batchSync">批量同步（{{ selectedSources.length }}）</VBtn>
           </VCardTitle>
           <VDivider />
           <div class="workspace-settings d-flex flex-wrap align-center ga-2 px-5 py-3">
@@ -851,7 +894,7 @@ onMounted(loadStatus)
           <VCard v-for="collection in status.collections" :key="collection.id" rounded="lg" variant="outlined">
             <VCardText class="managed-row d-flex flex-wrap align-center ga-3 pa-3">
               <VAvatar color="green" variant="tonal" rounded="lg" size="38"><VIcon icon="mdi-folder-star" /></VAvatar>
-              <div class="managed-info flex-grow-1 min-width-0">
+              <div class="managed-info min-width-0">
                 <div class="font-weight-medium text-truncate">{{ collection.name }}</div>
                 <div class="text-caption text-medium-emphasis text-truncate">{{ collection.source }} · 最近同步 {{ collection.last_sync_at }}</div>
               </div>
@@ -1015,33 +1058,49 @@ onMounted(loadStatus)
       </VCard>
     </VDialog>
 
-    <VDialog v-model="posterDialog" max-width="620">
+    <VDialog v-model="posterDialog" max-width="760">
       <VCard rounded="xl">
-        <VCardTitle class="pa-5">设置「{{ posterCollection?.name }}」合集海报</VCardTitle>
+        <VCardTitle class="poster-dialog-title text-h6 px-5 py-4">设置「{{ posterCollection?.name }}」合集海报</VCardTitle>
         <VDivider />
-        <VCardText class="pa-5">
-          <VAlert type="info" variant="tonal" class="mb-5">自动生成会使用片单中的多张海报组成倾斜海报墙，并叠加由下向上的黑色渐变与按词换行标题；也可以上传自己的图片覆盖。</VAlert>
-          <VBtn
-            block
-            size="large"
-            color="purple"
-            variant="tonal"
-            prepend-icon="mdi-auto-fix"
-            :loading="actionLoading === `poster-auto:${posterCollection?.id}`"
-            @click="generateCollectionPoster"
-          >自动生成并上传</VBtn>
-          <div class="text-center text-body-2 text-medium-emphasis my-5">或上传自己的海报</div>
-          <VFileInput v-model="posterFile" accept="image/jpeg,image/png,image/webp" label="选择自定义海报" prepend-icon="mdi-image-plus" show-size />
-          <VBtn
-            block
-            color="primary"
-            prepend-icon="mdi-upload"
-            :disabled="!posterFile"
-            :loading="actionLoading === `poster-upload:${posterCollection?.id}`"
-            @click="uploadCollectionPoster"
-          >上传自定义海报</VBtn>
+        <VCardText class="pa-4 pa-md-5">
+          <VAlert type="info" variant="tonal" density="compact" class="mb-4 poster-help">自动海报使用片单图片生成倾斜海报墙、黑色渐变和按词换行标题；自定义图片会覆盖自动海报。</VAlert>
+          <VRow dense>
+            <VCol cols="12" md="5">
+              <VCard variant="tonal" color="purple" rounded="lg" class="poster-option h-100">
+                <VCardText class="pa-4">
+                  <div class="d-flex align-center ga-2 font-weight-medium mb-1"><VIcon icon="mdi-auto-fix" />自动生成</div>
+                  <div class="text-caption text-medium-emphasis mb-4">重新读取片单海报并生成新版合集封面。</div>
+                  <VBtn
+                    block
+                    color="purple"
+                    variant="flat"
+                    prepend-icon="mdi-auto-fix"
+                    :loading="actionLoading === `poster-auto:${posterCollection?.id}`"
+                    @click="generateCollectionPoster"
+                  >生成并上传</VBtn>
+                </VCardText>
+              </VCard>
+            </VCol>
+            <VCol cols="12" md="7">
+              <VCard variant="outlined" rounded="lg" class="poster-option h-100">
+                <VCardText class="pa-4">
+                  <div class="d-flex align-center ga-2 font-weight-medium mb-3"><VIcon icon="mdi-image-plus-outline" />上传自定义海报</div>
+                  <VFileInput v-model="posterFile" accept="image/jpeg,image/png,image/webp" label="选择 JPG、PNG 或 WebP" density="compact" prepend-icon="" prepend-inner-icon="mdi-image-plus" show-size hide-details class="mb-3" />
+                  <VBtn
+                    block
+                    color="primary"
+                    variant="tonal"
+                    prepend-icon="mdi-upload"
+                    :disabled="!posterFile"
+                    :loading="actionLoading === `poster-upload:${posterCollection?.id}`"
+                    @click="uploadCollectionPoster"
+                  >上传所选图片</VBtn>
+                </VCardText>
+              </VCard>
+            </VCol>
+          </VRow>
         </VCardText>
-        <VCardActions><VSpacer /><VBtn variant="text" @click="posterDialog = false">关闭</VBtn></VCardActions>
+        <VCardActions class="px-5 pb-4 pt-0"><VSpacer /><VBtn variant="text" @click="posterDialog = false">关闭</VBtn></VCardActions>
       </VCard>
     </VDialog>
   </div>
@@ -1065,9 +1124,12 @@ onMounted(loadStatus)
 .preview-description { max-width: 900px; line-height: 1.65; white-space: pre-line; }
 .schedule-cron { min-width: 240px; max-width: 360px; }
 .setting-field { min-width: 180px; max-width: 230px; }
-.managed-info { min-width: 210px; }
+.managed-info { flex: 0 1 420px; width: min(420px, 30vw); min-width: 240px; }
 .managed-chips { flex: 0 0 auto; }
 .managed-actions { flex: 0 0 auto; }
+.poster-dialog-title { line-height: 1.35; }
+.poster-help :deep(.v-alert__content) { line-height: 1.55; }
+.poster-option { min-height: 166px; }
 .preview-anchor { scroll-margin-top: 72px; }
 .preview-table { max-height: 650px; overflow: auto; border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); border-radius: 12px; }
 .poster { background: rgba(var(--v-theme-on-surface), .06); }
@@ -1092,7 +1154,7 @@ onMounted(loadStatus)
   .source-actions { width: 100%; padding-left: 52px; }
   .source-actions > .v-btn { flex: 1 1 120px; }
   .workspace-settings > .setting-field { flex: 1 1 160px; min-width: 140px; max-width: none; }
-  .managed-info { min-width: calc(100% - 54px); }
+  .managed-info { flex: 1 1 calc(100% - 54px); width: auto; min-width: calc(100% - 54px); }
   .managed-chips, .managed-actions { width: 100%; padding-left: 50px; }
   .managed-actions > .v-btn { flex: 1 1 auto; }
   .smart-page :deep(.v-card-title) { padding: 16px !important; }

@@ -18,65 +18,69 @@ const _hoisted_2 = {
   class: "page-header d-flex flex-wrap align-center ga-3 mb-5"
 };
 const _hoisted_3 = { class: "d-flex justify-space-between text-body-2 mb-2" };
-const _hoisted_4 = { class: "workspace-settings d-flex flex-wrap align-center ga-2 px-5 py-3" };
-const _hoisted_5 = { class: "source-identity d-flex align-center ga-3 flex-grow-1 min-width-0" };
-const _hoisted_6 = { class: "source-name d-flex flex-column justify-center min-width-0" };
-const _hoisted_7 = { class: "font-weight-medium text-truncate" };
-const _hoisted_8 = { class: "text-caption text-medium-emphasis" };
-const _hoisted_9 = { key: 0 };
-const _hoisted_10 = { class: "source-actions d-flex align-center ga-2" };
-const _hoisted_11 = { class: "d-flex flex-column flex-md-row ga-3" };
-const _hoisted_12 = { class: "d-flex flex-wrap align-center ga-2 mb-4" };
-const _hoisted_13 = { class: "text-h6" };
-const _hoisted_14 = { class: "text-body-2 text-medium-emphasis mt-1" };
-const _hoisted_15 = { class: "text-h5" };
-const _hoisted_16 = { class: "text-h5 text-success" };
-const _hoisted_17 = { class: "text-h5 text-warning" };
-const _hoisted_18 = {
+const _hoisted_4 = { class: "d-flex justify-space-between text-body-2 mb-2" };
+const _hoisted_5 = { class: "text-caption text-medium-emphasis mt-2" };
+const _hoisted_6 = { class: "workspace-settings d-flex flex-wrap align-center ga-2 px-5 py-3" };
+const _hoisted_7 = { class: "source-identity d-flex align-center ga-3 flex-grow-1 min-width-0" };
+const _hoisted_8 = { class: "source-name d-flex flex-column justify-center min-width-0" };
+const _hoisted_9 = { class: "font-weight-medium text-truncate" };
+const _hoisted_10 = { class: "text-caption text-medium-emphasis" };
+const _hoisted_11 = { key: 0 };
+const _hoisted_12 = { class: "source-actions d-flex align-center ga-2" };
+const _hoisted_13 = { class: "d-flex flex-column flex-md-row ga-3" };
+const _hoisted_14 = { class: "d-flex flex-wrap align-center ga-2 mb-4" };
+const _hoisted_15 = { class: "text-h6" };
+const _hoisted_16 = { class: "text-body-2 text-medium-emphasis mt-1" };
+const _hoisted_17 = { class: "text-h5" };
+const _hoisted_18 = { class: "text-h5 text-success" };
+const _hoisted_19 = { class: "text-h5 text-warning" };
+const _hoisted_20 = {
   key: 2,
   class: "mb-4"
 };
-const _hoisted_19 = { class: "d-flex justify-space-between text-body-2 mb-2" };
-const _hoisted_20 = {
+const _hoisted_21 = { class: "d-flex justify-space-between text-body-2 mb-2" };
+const _hoisted_22 = {
   key: 0,
   class: "managed-list d-flex flex-column ga-2"
 };
-const _hoisted_21 = { class: "managed-info flex-grow-1 min-width-0" };
-const _hoisted_22 = { class: "font-weight-medium text-truncate" };
-const _hoisted_23 = { class: "text-caption text-medium-emphasis text-truncate" };
-const _hoisted_24 = { class: "managed-chips d-flex align-center ga-2" };
-const _hoisted_25 = { class: "managed-actions d-flex flex-wrap align-center ga-1" };
-const _hoisted_26 = { class: "preview-heading flex-grow-1" };
-const _hoisted_27 = { class: "text-h6" };
-const _hoisted_28 = { class: "text-body-2 text-medium-emphasis" };
-const _hoisted_29 = ["href"];
-const _hoisted_30 = {
+const _hoisted_23 = { class: "managed-info min-width-0" };
+const _hoisted_24 = { class: "font-weight-medium text-truncate" };
+const _hoisted_25 = { class: "text-caption text-medium-emphasis text-truncate" };
+const _hoisted_26 = { class: "managed-chips d-flex align-center ga-2" };
+const _hoisted_27 = { class: "managed-actions d-flex flex-wrap align-center ga-1" };
+const _hoisted_28 = { class: "preview-heading flex-grow-1" };
+const _hoisted_29 = { class: "text-h6" };
+const _hoisted_30 = { class: "text-body-2 text-medium-emphasis" };
+const _hoisted_31 = ["href"];
+const _hoisted_32 = {
   key: 1,
   class: "preview-description text-body-2 text-medium-emphasis mt-2"
 };
-const _hoisted_31 = { class: "preview-actions d-flex flex-wrap align-center justify-end ga-3" };
-const _hoisted_32 = { class: "d-flex justify-space-between text-body-2 mb-2" };
-const _hoisted_33 = { class: "text-h5" };
-const _hoisted_34 = { class: "text-h5" };
+const _hoisted_33 = { class: "preview-actions d-flex flex-wrap align-center justify-end ga-3" };
+const _hoisted_34 = { class: "d-flex justify-space-between text-body-2 mb-2" };
 const _hoisted_35 = { class: "text-h5" };
 const _hoisted_36 = { class: "text-h5" };
-const _hoisted_37 = { class: "preview-table" };
-const _hoisted_38 = ["href"];
-const _hoisted_39 = { key: 1 };
-const _hoisted_40 = { class: "text-medium-emphasis" };
-const _hoisted_41 = {
+const _hoisted_37 = { class: "text-h5" };
+const _hoisted_38 = { class: "text-h5" };
+const _hoisted_39 = { class: "preview-table" };
+const _hoisted_40 = ["href"];
+const _hoisted_41 = { key: 1 };
+const _hoisted_42 = { class: "text-medium-emphasis" };
+const _hoisted_43 = {
   key: 3,
   class: "text-caption text-medium-emphasis"
 };
-const _hoisted_42 = ["href"];
-const _hoisted_43 = {
+const _hoisted_44 = ["href"];
+const _hoisted_45 = {
   key: 1,
   class: "text-medium-emphasis"
 };
-const _hoisted_44 = {
+const _hoisted_46 = {
   key: 2,
   class: "text-caption text-medium-emphasis"
 };
+const _hoisted_47 = { class: "d-flex align-center ga-2 font-weight-medium mb-1" };
+const _hoisted_48 = { class: "d-flex align-center ga-2 font-weight-medium mb-3" };
 
 const {computed,nextTick,onMounted,ref} = await importShared('vue');
 
@@ -115,6 +119,8 @@ const enlargedPosterTitle = ref('');
 const subscribingKeys = ref([]);
 const subscribedKeys = ref([]);
 const bulkSubscriptionStatus = ref({ running: false, progress: 0, total: 0, subscribed: 0, failed: 0 });
+const batchSyncStatus = ref({ running: false, progress: 0, total: 0, completed: 0, succeeded: 0, failed: 0 });
+const batchSyncPolling = ref(false);
 const posterDialog = ref(false);
 const posterCollection = ref(null);
 const posterFile = ref(null);
@@ -162,6 +168,7 @@ async function loadStatus() {
   try {
     status.value = assertResponse(await props.api.get(`${pluginBase.value}/status`)) || status.value;
     bulkSubscriptionStatus.value = status.value.subscription_batch || bulkSubscriptionStatus.value;
+    batchSyncStatus.value = status.value.batch_sync || batchSyncStatus.value;
     previewTask.value = status.value.preview_task || previewTask.value;
     managedScheduleEnabled.value = Boolean(status.value.managed_schedule?.enabled);
     managedScheduleCron.value = status.value.managed_schedule?.cron || '0 4 * * *';
@@ -174,6 +181,7 @@ async function loadStatus() {
       selectedBackupId.value = '';
     }
     if (status.value.catalog_refreshing) refreshCatalog();
+    if (batchSyncStatus.value.running) void monitorBatchSync();
   } catch (err) {
     error.value = err?.message || '页面数据加载失败';
   } finally {
@@ -280,16 +288,47 @@ async function batchSync() {
   actionLoading.value = 'batch-sync';
   clearMessages();
   try {
-    const response = await props.api.post(`${pluginBase.value}/batch/sync`, { sources });
-    const results = unwrapResponse(response) || [];
-    if (response?.success === false && !results.length) throw new Error(response.message || '批量同步失败')
-    const ok = results.filter(item => item.success).length;
-    await loadStatus();
-    notice.value = `批量同步完成：成功 ${ok} / ${results.length}`;
+    const started = assertResponse(await props.api.post(`${pluginBase.value}/batch/sync`, { sources })) || {};
+    batchSyncStatus.value = {
+      running: true,
+      progress: 0,
+      total: started.total || sources.length,
+      completed: 0,
+      succeeded: 0,
+      failed: 0,
+      task_id: started.task_id,
+      message: `准备同步 ${started.total || sources.length} 个片单`,
+    };
+    notice.value = '批量同步已转入后台运行，可以离开此页面；完成后会发送通知。';
+    void monitorBatchSync();
   } catch (err) {
     error.value = err?.message || '批量同步失败';
   } finally {
     actionLoading.value = '';
+  }
+}
+
+async function monitorBatchSync() {
+  if (batchSyncPolling.value) return
+  batchSyncPolling.value = true;
+  try {
+    for (let attempt = 0; attempt < 14400; attempt += 1) {
+      const data = assertResponse(await props.api.get(`${pluginBase.value}/batch/sync/status`)) || {};
+      batchSyncStatus.value = data;
+      if (!data.running) {
+        if (data.error) throw new Error(data.error)
+        const results = data.result || [];
+        await loadStatus();
+        notice.value = data.message || `批量同步完成：成功 ${results.filter(item => item.success).length} / ${results.length}`;
+        return
+      }
+      await wait(1000);
+    }
+    throw new Error('批量同步状态查询超时；后台任务可能仍在运行')
+  } catch (err) {
+    error.value = err?.message || '查询批量同步进度失败';
+  } finally {
+    batchSyncPolling.value = false;
   }
 }
 
@@ -799,6 +838,29 @@ return (_ctx, _cache) => {
           _: 1
         }))
       : _createCommentVNode("", true),
+    (batchSyncStatus.value.running)
+      ? (_openBlock(), _createBlock(_component_VAlert, {
+          key: 5,
+          type: "info",
+          variant: "tonal",
+          class: "mb-4"
+        }, {
+          default: _withCtx(() => [
+            _createElementVNode("div", _hoisted_4, [
+              _createElementVNode("span", null, _toDisplayString(batchSyncStatus.value.message || '正在后台批量同步…'), 1),
+              _createElementVNode("span", null, _toDisplayString(batchSyncStatus.value.completed || 0) + "/" + _toDisplayString(batchSyncStatus.value.total || 0) + " · " + _toDisplayString(batchSyncStatus.value.progress || 0) + "%", 1)
+            ]),
+            _createVNode(_component_VProgressLinear, {
+              "model-value": batchSyncStatus.value.progress || 0,
+              color: "primary",
+              rounded: "",
+              height: "8"
+            }, null, 8, ["model-value"]),
+            _createElementVNode("div", _hoisted_5, "已成功 " + _toDisplayString(batchSyncStatus.value.succeeded || 0) + "，失败 " + _toDisplayString(batchSyncStatus.value.failed || 0) + "；关闭页面不会中断任务。", 1)
+          ]),
+          _: 1
+        }))
+      : _createCommentVNode("", true),
     _createVNode(_component_VCard, {
       rounded: "xl",
       variant: "outlined",
@@ -878,19 +940,20 @@ return (_ctx, _cache) => {
                     _createVNode(_component_VBtn, {
                       color: "primary",
                       "prepend-icon": "mdi-sync",
-                      loading: actionLoading.value === 'batch-sync',
+                      disabled: batchSyncStatus.value.running,
+                      loading: actionLoading.value === 'batch-sync' || batchSyncStatus.value.running,
                       onClick: batchSync
                     }, {
                       default: _withCtx(() => [
                         _createTextVNode("批量同步（" + _toDisplayString(selectedSources.value.length) + "）", 1)
                       ]),
                       _: 1
-                    }, 8, ["loading"])
+                    }, 8, ["disabled", "loading"])
                   ]),
                   _: 1
                 }),
                 _createVNode(_component_VDivider),
-                _createElementVNode("div", _hoisted_4, [
+                _createElementVNode("div", _hoisted_6, [
                   _createVNode(_component_VTextField, {
                     modelValue: pageMaxItems.value,
                     "onUpdate:modelValue": _cache[3] || (_cache[3] = $event => ((pageMaxItems).value = $event)),
@@ -1001,7 +1064,7 @@ return (_ctx, _cache) => {
                                         color: "primary",
                                         class: "source-check"
                                       }, null, 8, ["modelValue", "value"]),
-                                      _createElementVNode("div", _hoisted_5, [
+                                      _createElementVNode("div", _hoisted_7, [
                                         _createVNode(_component_VAvatar, {
                                           color: sourceTab.value === 'douban' ? 'green' : 'blue',
                                           variant: "tonal",
@@ -1016,17 +1079,17 @@ return (_ctx, _cache) => {
                                           ]),
                                           _: 1
                                         }, 8, ["color"]),
-                                        _createElementVNode("div", _hoisted_6, [
-                                          _createElementVNode("div", _hoisted_7, _toDisplayString(source.name), 1),
-                                          _createElementVNode("div", _hoisted_8, [
+                                        _createElementVNode("div", _hoisted_8, [
+                                          _createElementVNode("div", _hoisted_9, _toDisplayString(source.name), 1),
+                                          _createElementVNode("div", _hoisted_10, [
                                             _createTextVNode(_toDisplayString(sourceTab.value === 'douban' ? `豆列 ${source.list_id}` : source.media_type === 'tv' ? '剧集片单' : source.media_type === 'movie' ? '电影片单' : '混合片单') + " ", 1),
                                             (source.item_count !== null && source.item_count !== undefined)
-                                              ? (_openBlock(), _createElementBlock("span", _hoisted_9, " · " + _toDisplayString(source.item_count) + " 个条目", 1))
+                                              ? (_openBlock(), _createElementBlock("span", _hoisted_11, " · " + _toDisplayString(source.item_count) + " 个条目", 1))
                                               : _createCommentVNode("", true)
                                           ])
                                         ])
                                       ]),
-                                      _createElementVNode("div", _hoisted_10, [
+                                      _createElementVNode("div", _hoisted_12, [
                                         (source.url)
                                           ? (_openBlock(), _createBlock(_component_VBtn, {
                                               key: 0,
@@ -1085,7 +1148,7 @@ return (_ctx, _cache) => {
                   default: _withCtx(() => [
                     _cache[43] || (_cache[43] = _createElementVNode("div", { class: "text-h6 mb-1" }, "手动输入公开片单", -1)),
                     _cache[44] || (_cache[44] = _createElementVNode("div", { class: "text-body-2 text-medium-emphasis mb-4" }, "支持 TMDB List 和豆瓣豆列链接。", -1)),
-                    _createElementVNode("div", _hoisted_11, [
+                    _createElementVNode("div", _hoisted_13, [
                       _createVNode(_component_VTextField, {
                         modelValue: manualUrl.value,
                         "onUpdate:modelValue": _cache[7] || (_cache[7] = $event => ((manualUrl).value = $event)),
@@ -1117,7 +1180,7 @@ return (_ctx, _cache) => {
         }),
         _createVNode(_component_VWindowItem, { value: "templates" }, {
           default: _withCtx(() => [
-            _createElementVNode("div", _hoisted_12, [
+            _createElementVNode("div", _hoisted_14, [
               _cache[47] || (_cache[47] = _createElementVNode("div", null, [
                 _createElementVNode("div", { class: "text-h6" }, "我的模板"),
                 _createElementVNode("div", { class: "text-body-2 text-medium-emphasis" }, "模板保存的是已解析的 TMDB 条目，可导入导出。")
@@ -1175,8 +1238,8 @@ return (_ctx, _cache) => {
                                     ]),
                                     _: 1
                                   }),
-                                  _createElementVNode("div", _hoisted_13, _toDisplayString(template.name), 1),
-                                  _createElementVNode("div", _hoisted_14, _toDisplayString(template.description || '自定义智能合集模板'), 1),
+                                  _createElementVNode("div", _hoisted_15, _toDisplayString(template.name), 1),
+                                  _createElementVNode("div", _hoisted_16, _toDisplayString(template.description || '自定义智能合集模板'), 1),
                                   _createVNode(_component_VChip, {
                                     size: "small",
                                     class: "mt-3"
@@ -1350,21 +1413,21 @@ return (_ctx, _cache) => {
                             _createVNode(_component_VCol, { cols: "4" }, {
                               default: _withCtx(() => [
                                 _cache[55] || (_cache[55] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "全部合集", -1)),
-                                _createElementVNode("div", _hoisted_15, _toDisplayString(collectionInventory.value.total), 1)
+                                _createElementVNode("div", _hoisted_17, _toDisplayString(collectionInventory.value.total), 1)
                               ]),
                               _: 1
                             }),
                             _createVNode(_component_VCol, { cols: "4" }, {
                               default: _withCtx(() => [
                                 _cache[56] || (_cache[56] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "智能合集", -1)),
-                                _createElementVNode("div", _hoisted_16, _toDisplayString(collectionInventory.value.managed), 1)
+                                _createElementVNode("div", _hoisted_18, _toDisplayString(collectionInventory.value.managed), 1)
                               ]),
                               _: 1
                             }),
                             _createVNode(_component_VCol, { cols: "4" }, {
                               default: _withCtx(() => [
                                 _cache[57] || (_cache[57] = _createElementVNode("div", { class: "text-caption text-medium-emphasis" }, "其他合集", -1)),
-                                _createElementVNode("div", _hoisted_17, _toDisplayString(collectionInventory.value.other), 1)
+                                _createElementVNode("div", _hoisted_19, _toDisplayString(collectionInventory.value.other), 1)
                               ]),
                               _: 1
                             })
@@ -1382,8 +1445,8 @@ return (_ctx, _cache) => {
                       _: 1
                     }),
                     (collectionTools.value.running)
-                      ? (_openBlock(), _createElementBlock("div", _hoisted_18, [
-                          _createElementVNode("div", _hoisted_19, [
+                      ? (_openBlock(), _createElementBlock("div", _hoisted_20, [
+                          _createElementVNode("div", _hoisted_21, [
                             _createElementVNode("span", null, _toDisplayString(collectionTools.value.message), 1),
                             _createElementVNode("span", null, _toDisplayString(collectionTools.value.progress || 0) + "%", 1)
                           ]),
@@ -1472,7 +1535,7 @@ return (_ctx, _cache) => {
             _cache[67] || (_cache[67] = _createElementVNode("div", { class: "text-h6 mb-1" }, "已同步合集", -1)),
             _cache[68] || (_cache[68] = _createElementVNode("div", { class: "text-body-2 text-medium-emphasis mb-4" }, "重新同步来源，或同时删除管理记录和 Emby 合集。", -1)),
             (status.value.collections?.length)
-              ? (_openBlock(), _createElementBlock("div", _hoisted_20, [
+              ? (_openBlock(), _createElementBlock("div", _hoisted_22, [
                   (_openBlock(true), _createElementBlock(_Fragment, null, _renderList(status.value.collections, (collection) => {
                     return (_openBlock(), _createBlock(_component_VCard, {
                       key: collection.id,
@@ -1493,11 +1556,11 @@ return (_ctx, _cache) => {
                               ]),
                               _: 1
                             }),
-                            _createElementVNode("div", _hoisted_21, [
-                              _createElementVNode("div", _hoisted_22, _toDisplayString(collection.name), 1),
-                              _createElementVNode("div", _hoisted_23, _toDisplayString(collection.source) + " · 最近同步 " + _toDisplayString(collection.last_sync_at), 1)
+                            _createElementVNode("div", _hoisted_23, [
+                              _createElementVNode("div", _hoisted_24, _toDisplayString(collection.name), 1),
+                              _createElementVNode("div", _hoisted_25, _toDisplayString(collection.source) + " · 最近同步 " + _toDisplayString(collection.last_sync_at), 1)
                             ]),
-                            _createElementVNode("div", _hoisted_24, [
+                            _createElementVNode("div", _hoisted_26, [
                               _createVNode(_component_VChip, {
                                 color: "success",
                                 variant: "tonal",
@@ -1522,7 +1585,7 @@ return (_ctx, _cache) => {
                                   }, 1024))
                                 : _createCommentVNode("", true)
                             ]),
-                            _createElementVNode("div", _hoisted_25, [
+                            _createElementVNode("div", _hoisted_27, [
                               (collection.source_url)
                                 ? (_openBlock(), _createBlock(_component_VBtn, {
                                     key: 0,
@@ -1609,7 +1672,7 @@ return (_ctx, _cache) => {
     }, 8, ["modelValue"]),
     (preview.value)
       ? (_openBlock(), _createElementBlock("div", {
-          key: 5,
+          key: 6,
           ref_key: "previewAnchor",
           ref: previewAnchor,
           class: "preview-anchor pt-2"
@@ -1622,9 +1685,9 @@ return (_ctx, _cache) => {
             default: _withCtx(() => [
               _createVNode(_component_VCardTitle, { class: "preview-header d-flex flex-wrap align-center ga-3 pa-5" }, {
                 default: _withCtx(() => [
-                  _createElementVNode("div", _hoisted_26, [
-                    _createElementVNode("div", _hoisted_27, _toDisplayString(preview.value.title), 1),
-                    _createElementVNode("div", _hoisted_28, "共 " + _toDisplayString(preview.value.total_count) + " · 电影 " + _toDisplayString(preview.value.movie_count) + " · 剧集 " + _toDisplayString(preview.value.tv_count) + " · Emby 已有 " + _toDisplayString(preview.value.matched_count) + " · 缺失 " + _toDisplayString(preview.value.missing_count) + " · 可订阅 " + _toDisplayString(missingSubscribableItems.value.length) + " · 待识别 " + _toDisplayString(preview.value.unresolved_count || 0), 1),
+                  _createElementVNode("div", _hoisted_28, [
+                    _createElementVNode("div", _hoisted_29, _toDisplayString(preview.value.title), 1),
+                    _createElementVNode("div", _hoisted_30, "共 " + _toDisplayString(preview.value.total_count) + " · 电影 " + _toDisplayString(preview.value.movie_count) + " · 剧集 " + _toDisplayString(preview.value.tv_count) + " · Emby 已有 " + _toDisplayString(preview.value.matched_count) + " · 缺失 " + _toDisplayString(preview.value.missing_count) + " · 可订阅 " + _toDisplayString(missingSubscribableItems.value.length) + " · 待识别 " + _toDisplayString(preview.value.unresolved_count || 0), 1),
                     (preview.value.source_url)
                       ? (_openBlock(), _createElementBlock("a", {
                           key: 0,
@@ -1639,13 +1702,13 @@ return (_ctx, _cache) => {
                             class: "me-1"
                           }),
                           _createTextVNode(_toDisplayString(preview.value.source_url), 1)
-                        ], 8, _hoisted_29))
+                        ], 8, _hoisted_31))
                       : _createCommentVNode("", true),
                     (preview.value.description)
-                      ? (_openBlock(), _createElementBlock("div", _hoisted_30, _toDisplayString(preview.value.description), 1))
+                      ? (_openBlock(), _createElementBlock("div", _hoisted_32, _toDisplayString(preview.value.description), 1))
                       : _createCommentVNode("", true)
                   ]),
-                  _createElementVNode("div", _hoisted_31, [
+                  _createElementVNode("div", _hoisted_33, [
                     _createVNode(_component_VTextField, {
                       modelValue: collectionName.value,
                       "onUpdate:modelValue": _cache[13] || (_cache[13] = $event => ((collectionName).value = $event)),
@@ -1705,7 +1768,7 @@ return (_ctx, _cache) => {
                         class: "mb-3"
                       }, {
                         default: _withCtx(() => [
-                          _createElementVNode("div", _hoisted_32, [
+                          _createElementVNode("div", _hoisted_34, [
                             _createElementVNode("span", null, _toDisplayString(bulkSubscriptionStatus.value.message), 1),
                             _createElementVNode("span", null, _toDisplayString(bulkSubscriptionStatus.value.progress || 0) + "%", 1)
                           ]),
@@ -1760,7 +1823,7 @@ return (_ctx, _cache) => {
                               _createVNode(_component_VCardText, null, {
                                 default: _withCtx(() => [
                                   _cache[70] || (_cache[70] = _createElementVNode("div", { class: "text-caption" }, "列表总数", -1)),
-                                  _createElementVNode("div", _hoisted_33, _toDisplayString(preview.value.total_count), 1)
+                                  _createElementVNode("div", _hoisted_35, _toDisplayString(preview.value.total_count), 1)
                                 ]),
                                 _: 1
                               })
@@ -1783,7 +1846,7 @@ return (_ctx, _cache) => {
                               _createVNode(_component_VCardText, null, {
                                 default: _withCtx(() => [
                                   _cache[71] || (_cache[71] = _createElementVNode("div", { class: "text-caption" }, "电影 / 剧集", -1)),
-                                  _createElementVNode("div", _hoisted_34, _toDisplayString(preview.value.movie_count) + " / " + _toDisplayString(preview.value.tv_count), 1)
+                                  _createElementVNode("div", _hoisted_36, _toDisplayString(preview.value.movie_count) + " / " + _toDisplayString(preview.value.tv_count), 1)
                                 ]),
                                 _: 1
                               })
@@ -1806,7 +1869,7 @@ return (_ctx, _cache) => {
                               _createVNode(_component_VCardText, null, {
                                 default: _withCtx(() => [
                                   _cache[72] || (_cache[72] = _createElementVNode("div", { class: "text-caption" }, "已匹配", -1)),
-                                  _createElementVNode("div", _hoisted_35, _toDisplayString(preview.value.matched_count), 1)
+                                  _createElementVNode("div", _hoisted_37, _toDisplayString(preview.value.matched_count), 1)
                                 ]),
                                 _: 1
                               })
@@ -1829,7 +1892,7 @@ return (_ctx, _cache) => {
                               _createVNode(_component_VCardText, null, {
                                 default: _withCtx(() => [
                                   _cache[73] || (_cache[73] = _createElementVNode("div", { class: "text-caption" }, "缺失", -1)),
-                                  _createElementVNode("div", _hoisted_36, _toDisplayString(preview.value.missing_count), 1)
+                                  _createElementVNode("div", _hoisted_38, _toDisplayString(preview.value.missing_count), 1)
                                 ]),
                                 _: 1
                               })
@@ -1842,7 +1905,7 @@ return (_ctx, _cache) => {
                     ]),
                     _: 1
                   }),
-                  _createElementVNode("div", _hoisted_37, [
+                  _createElementVNode("div", _hoisted_39, [
                     _createVNode(_component_VTable, {
                       hover: "",
                       density: "comfortable"
@@ -1906,9 +1969,9 @@ return (_ctx, _cache) => {
                                       target: "_blank",
                                       rel: "noopener",
                                       class: "item-link"
-                                    }, _toDisplayString(item.title), 9, _hoisted_38))
-                                  : (_openBlock(), _createElementBlock("span", _hoisted_39, _toDisplayString(item.title), 1)),
-                                _createElementVNode("span", _hoisted_40, _toDisplayString(item.year ? `(${item.year})` : ''), 1),
+                                    }, _toDisplayString(item.title), 9, _hoisted_40))
+                                  : (_openBlock(), _createElementBlock("span", _hoisted_41, _toDisplayString(item.title), 1)),
+                                _createElementVNode("span", _hoisted_42, _toDisplayString(item.year ? `(${item.year})` : ''), 1),
                                 _createVNode(_component_VChip, {
                                   size: "x-small",
                                   class: "ms-2"
@@ -1937,7 +2000,7 @@ return (_ctx, _cache) => {
                                     }, 1032, ["loading", "disabled", "onClick"]))
                                   : _createCommentVNode("", true),
                                 (!item.matched)
-                                  ? (_openBlock(), _createElementBlock("div", _hoisted_41, _toDisplayString(item.missing_reason), 1))
+                                  ? (_openBlock(), _createElementBlock("div", _hoisted_43, _toDisplayString(item.missing_reason), 1))
                                   : _createCommentVNode("", true)
                               ]),
                               _createElementVNode("td", null, [
@@ -1948,10 +2011,10 @@ return (_ctx, _cache) => {
                                       target: "_blank",
                                       rel: "noopener",
                                       class: "emby-link"
-                                    }, _toDisplayString(item.emby_name), 9, _hoisted_42))
-                                  : (_openBlock(), _createElementBlock("span", _hoisted_43, _toDisplayString(item.emby_name || '—'), 1)),
+                                    }, _toDisplayString(item.emby_name), 9, _hoisted_44))
+                                  : (_openBlock(), _createElementBlock("span", _hoisted_45, _toDisplayString(item.emby_name || '—'), 1)),
                                 (item.match_method === 'title')
-                                  ? (_openBlock(), _createElementBlock("span", _hoisted_44, "（标题兜底）"))
+                                  ? (_openBlock(), _createElementBlock("span", _hoisted_46, "（标题兜底）"))
                                   : _createCommentVNode("", true)
                               ])
                             ]))
@@ -2205,77 +2268,140 @@ return (_ctx, _cache) => {
     _createVNode(_component_VDialog, {
       modelValue: posterDialog.value,
       "onUpdate:modelValue": _cache[29] || (_cache[29] = $event => ((posterDialog).value = $event)),
-      "max-width": "620"
+      "max-width": "760"
     }, {
       default: _withCtx(() => [
         _createVNode(_component_VCard, { rounded: "xl" }, {
           default: _withCtx(() => [
-            _createVNode(_component_VCardTitle, { class: "pa-5" }, {
+            _createVNode(_component_VCardTitle, { class: "poster-dialog-title text-h6 px-5 py-4" }, {
               default: _withCtx(() => [
                 _createTextVNode("设置「" + _toDisplayString(posterCollection.value?.name) + "」合集海报", 1)
               ]),
               _: 1
             }),
             _createVNode(_component_VDivider),
-            _createVNode(_component_VCardText, { class: "pa-5" }, {
+            _createVNode(_component_VCardText, { class: "pa-4 pa-md-5" }, {
               default: _withCtx(() => [
                 _createVNode(_component_VAlert, {
                   type: "info",
                   variant: "tonal",
-                  class: "mb-5"
+                  density: "compact",
+                  class: "mb-4 poster-help"
                 }, {
                   default: _withCtx(() => [...(_cache[84] || (_cache[84] = [
-                    _createTextVNode("自动生成会使用片单中的多张海报组成倾斜海报墙，并叠加由下向上的黑色渐变与按词换行标题；也可以上传自己的图片覆盖。", -1)
+                    _createTextVNode("自动海报使用片单图片生成倾斜海报墙、黑色渐变和按词换行标题；自定义图片会覆盖自动海报。", -1)
                   ]))]),
                   _: 1
                 }),
-                _createVNode(_component_VBtn, {
-                  block: "",
-                  size: "large",
-                  color: "purple",
-                  variant: "tonal",
-                  "prepend-icon": "mdi-auto-fix",
-                  loading: actionLoading.value === `poster-auto:${posterCollection.value?.id}`,
-                  onClick: generateCollectionPoster
-                }, {
-                  default: _withCtx(() => [...(_cache[85] || (_cache[85] = [
-                    _createTextVNode("自动生成并上传", -1)
-                  ]))]),
+                _createVNode(_component_VRow, { dense: "" }, {
+                  default: _withCtx(() => [
+                    _createVNode(_component_VCol, {
+                      cols: "12",
+                      md: "5"
+                    }, {
+                      default: _withCtx(() => [
+                        _createVNode(_component_VCard, {
+                          variant: "tonal",
+                          color: "purple",
+                          rounded: "lg",
+                          class: "poster-option h-100"
+                        }, {
+                          default: _withCtx(() => [
+                            _createVNode(_component_VCardText, { class: "pa-4" }, {
+                              default: _withCtx(() => [
+                                _createElementVNode("div", _hoisted_47, [
+                                  _createVNode(_component_VIcon, { icon: "mdi-auto-fix" }),
+                                  _cache[85] || (_cache[85] = _createTextVNode("自动生成", -1))
+                                ]),
+                                _cache[87] || (_cache[87] = _createElementVNode("div", { class: "text-caption text-medium-emphasis mb-4" }, "重新读取片单海报并生成新版合集封面。", -1)),
+                                _createVNode(_component_VBtn, {
+                                  block: "",
+                                  color: "purple",
+                                  variant: "flat",
+                                  "prepend-icon": "mdi-auto-fix",
+                                  loading: actionLoading.value === `poster-auto:${posterCollection.value?.id}`,
+                                  onClick: generateCollectionPoster
+                                }, {
+                                  default: _withCtx(() => [...(_cache[86] || (_cache[86] = [
+                                    _createTextVNode("生成并上传", -1)
+                                  ]))]),
+                                  _: 1
+                                }, 8, ["loading"])
+                              ]),
+                              _: 1
+                            })
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    }),
+                    _createVNode(_component_VCol, {
+                      cols: "12",
+                      md: "7"
+                    }, {
+                      default: _withCtx(() => [
+                        _createVNode(_component_VCard, {
+                          variant: "outlined",
+                          rounded: "lg",
+                          class: "poster-option h-100"
+                        }, {
+                          default: _withCtx(() => [
+                            _createVNode(_component_VCardText, { class: "pa-4" }, {
+                              default: _withCtx(() => [
+                                _createElementVNode("div", _hoisted_48, [
+                                  _createVNode(_component_VIcon, { icon: "mdi-image-plus-outline" }),
+                                  _cache[88] || (_cache[88] = _createTextVNode("上传自定义海报", -1))
+                                ]),
+                                _createVNode(_component_VFileInput, {
+                                  modelValue: posterFile.value,
+                                  "onUpdate:modelValue": _cache[27] || (_cache[27] = $event => ((posterFile).value = $event)),
+                                  accept: "image/jpeg,image/png,image/webp",
+                                  label: "选择 JPG、PNG 或 WebP",
+                                  density: "compact",
+                                  "prepend-icon": "",
+                                  "prepend-inner-icon": "mdi-image-plus",
+                                  "show-size": "",
+                                  "hide-details": "",
+                                  class: "mb-3"
+                                }, null, 8, ["modelValue"]),
+                                _createVNode(_component_VBtn, {
+                                  block: "",
+                                  color: "primary",
+                                  variant: "tonal",
+                                  "prepend-icon": "mdi-upload",
+                                  disabled: !posterFile.value,
+                                  loading: actionLoading.value === `poster-upload:${posterCollection.value?.id}`,
+                                  onClick: uploadCollectionPoster
+                                }, {
+                                  default: _withCtx(() => [...(_cache[89] || (_cache[89] = [
+                                    _createTextVNode("上传所选图片", -1)
+                                  ]))]),
+                                  _: 1
+                                }, 8, ["disabled", "loading"])
+                              ]),
+                              _: 1
+                            })
+                          ]),
+                          _: 1
+                        })
+                      ]),
+                      _: 1
+                    })
+                  ]),
                   _: 1
-                }, 8, ["loading"]),
-                _cache[87] || (_cache[87] = _createElementVNode("div", { class: "text-center text-body-2 text-medium-emphasis my-5" }, "或上传自己的海报", -1)),
-                _createVNode(_component_VFileInput, {
-                  modelValue: posterFile.value,
-                  "onUpdate:modelValue": _cache[27] || (_cache[27] = $event => ((posterFile).value = $event)),
-                  accept: "image/jpeg,image/png,image/webp",
-                  label: "选择自定义海报",
-                  "prepend-icon": "mdi-image-plus",
-                  "show-size": ""
-                }, null, 8, ["modelValue"]),
-                _createVNode(_component_VBtn, {
-                  block: "",
-                  color: "primary",
-                  "prepend-icon": "mdi-upload",
-                  disabled: !posterFile.value,
-                  loading: actionLoading.value === `poster-upload:${posterCollection.value?.id}`,
-                  onClick: uploadCollectionPoster
-                }, {
-                  default: _withCtx(() => [...(_cache[86] || (_cache[86] = [
-                    _createTextVNode("上传自定义海报", -1)
-                  ]))]),
-                  _: 1
-                }, 8, ["disabled", "loading"])
+                })
               ]),
               _: 1
             }),
-            _createVNode(_component_VCardActions, null, {
+            _createVNode(_component_VCardActions, { class: "px-5 pb-4 pt-0" }, {
               default: _withCtx(() => [
                 _createVNode(_component_VSpacer),
                 _createVNode(_component_VBtn, {
                   variant: "text",
                   onClick: _cache[28] || (_cache[28] = $event => (posterDialog.value = false))
                 }, {
-                  default: _withCtx(() => [...(_cache[88] || (_cache[88] = [
+                  default: _withCtx(() => [...(_cache[90] || (_cache[90] = [
                     _createTextVNode("关闭", -1)
                   ]))]),
                   _: 1
@@ -2294,6 +2420,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const SmartCollectionsApp = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-6f1442a5"]]);
+const SmartCollectionsApp = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-7fbe8c48"]]);
 
 export { SmartCollectionsApp as S, _export_sfc as _ };
