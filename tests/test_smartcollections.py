@@ -1086,8 +1086,12 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertIn("/cache/export", frontend)
         self.assertIn("/settings", frontend)
         self.assertIn("/collections/tools/backup/delete", frontend)
+        self.assertIn("/batch/sync/status", frontend)
+        self.assertIn("关闭页面不会中断任务", frontend)
         self.assertIn("导出映射缓存", frontend)
         self.assertIn("解析上限", frontend)
+        self.assertNotIn('managed-info flex-grow-1', frontend)
+        self.assertIn('max-width="760"', frontend)
 
         seed = json.loads(
             (PLUGIN / "assets" / "douban_tmdb_seed.json").read_text(encoding="utf-8")
@@ -1166,6 +1170,90 @@ class SmartCollectionsTests(unittest.TestCase):
         exported = subject.api_cache_export()["data"]
         self.assertEqual(exported["mapping_count"], 1)
         self.assertEqual(set(exported["mappings"]), {"100"})
+
+    def test_batch_sync_returns_immediately_and_reports_background_progress(self):
+        source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        wanted = {"api_batch_sync", "api_batch_sync_status", "_run_batch_sync"}
+        methods = [
+            node
+            for item in tree.body
+            if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
+            for node in item.body
+            if isinstance(node, ast.FunctionDef) and node.name in wanted
+        ]
+
+        class DeferredThread:
+            latest = None
+
+            def __init__(self, target, args=(), **_kwargs):
+                self.target = target
+                self.args = args
+                type(self).latest = self
+
+            def start(self):
+                pass
+
+        class FakeLogger:
+            def exception(self, *_args, **_kwargs):
+                pass
+
+            def debug(self, *_args, **_kwargs):
+                pass
+
+        namespace = {
+            "Any": Any,
+            "Body": lambda *_args, **_kwargs: None,
+            "Dict": Dict,
+            "List": list,
+            "NotificationType": types.SimpleNamespace(Plugin="plugin"),
+            "logger": FakeLogger(),
+            "threading": types.SimpleNamespace(Thread=DeferredThread),
+            "uuid": types.SimpleNamespace(
+                uuid4=lambda: types.SimpleNamespace(hex="batch-task")
+            ),
+        }
+        exec(
+            "class Subject:\n"
+            + "\n".join(
+                f"    {line}"
+                for method in methods
+                for line in ast.unparse(method).splitlines()
+            ),
+            namespace,
+        )
+        subject = namespace["Subject"]()
+        subject._run_lock = threading.Lock()
+        subject._batch_sync_status_lock = threading.RLock()
+        subject._batch_sync_status = {}
+        subject._sync_mode = "sync"
+        subject._preview_context = lambda: object()
+        subject._spec_from_payload = lambda value: types.SimpleNamespace(
+            name=value.get("name"), mode=None
+        )
+        subject._build_preview = lambda spec, context=None, progress=None: (
+            progress(50, "匹配中") or {"title": spec.name}
+        )
+        subject._sync_preview_data = lambda preview, name, mode: {
+            "success": True,
+            "name": name,
+        }
+        notifications = []
+        subject.post_message = lambda **kwargs: notifications.append(kwargs)
+
+        started = subject.api_batch_sync({"sources": [{"name": "测试片单"}]})
+        self.assertTrue(started["success"])
+        self.assertEqual(started["data"]["task_id"], "batch-task")
+        self.assertTrue(subject.api_batch_sync_status()["data"]["running"])
+        self.assertTrue(subject._run_lock.locked())
+
+        DeferredThread.latest.target(*DeferredThread.latest.args)
+        status = subject.api_batch_sync_status()["data"]
+        self.assertFalse(status["running"])
+        self.assertEqual(status["progress"], 100)
+        self.assertEqual(status["succeeded"], 1)
+        self.assertFalse(subject._run_lock.locked())
+        self.assertIn("批量同步完成", notifications[-1]["title"])
 
     def test_collection_poster_generate_and_normalize(self):
         source_images = [
