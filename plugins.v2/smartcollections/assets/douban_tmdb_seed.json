@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "updated_at": null,
+  "description": "Reviewed community seed mappings. Local user cache takes precedence, except a verified seed replaces a temporary failed entry.",
+  "mappings": {}
+}

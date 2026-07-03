@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 from unittest.mock import patch
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +42,15 @@ config = types.ModuleType("app.core.config")
 config.settings = settings
 utils = types.ModuleType("app.utils")
 http = types.ModuleType("app.utils.http")
+log = types.ModuleType("app.log")
+
+
+class TestLogger:
+    def warning(self, *_args, **_kwargs):
+        pass
+
+
+log.logger = TestLogger()
 class FakeRequestUtils:
     deleted_urls = []
 
@@ -61,6 +70,7 @@ sys.modules.update(
         "app.core.config": config,
         "app.utils": utils,
         "app.utils.http": http,
+        "app.log": log,
     }
 )
 
@@ -297,7 +307,7 @@ class SmartCollectionsTests(unittest.TestCase):
             "MediaType": MediaType,
             "MediaChain": FakeMediaChain,
             "SourceResolver": FakeResolver,
-            "time": types.SimpleNamespace(monotonic=lambda: 100.0),
+            "time": types.SimpleNamespace(monotonic=lambda: 100.0, time=lambda: 1000.0),
             "logger": FakeLogger(),
         }
         method_source = ast.unparse(method)
@@ -308,6 +318,7 @@ class SmartCollectionsTests(unittest.TestCase):
         )
         subject = namespace["Subject"]()
         subject._douban_chain_cooldown_until = 0
+        subject._DOUBAN_FAILURE_CACHE_TTL = 6 * 3600
 
         FakeMediaChain.result = {
             "id": "303",
@@ -373,7 +384,7 @@ class SmartCollectionsTests(unittest.TestCase):
             "MediaChain": FakeMediaChain,
             "MediaType": types.SimpleNamespace(MOVIE="movie", TV="tv"),
             "SourceResolver": types.SimpleNamespace(),
-            "time": types.SimpleNamespace(monotonic=lambda: 100.0),
+            "time": types.SimpleNamespace(monotonic=lambda: 100.0, time=lambda: 1000.0),
             "logger": FakeLogger(),
         }
         exec(
@@ -385,6 +396,7 @@ class SmartCollectionsTests(unittest.TestCase):
         )
         subject = namespace["Subject"]()
         subject._douban_chain_cooldown_until = 0
+        subject._DOUBAN_FAILURE_CACHE_TTL = 6 * 3600
         cache = {}
         result = subject._resolve_media_ref(
             MediaRef(
@@ -398,6 +410,29 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertEqual(result.tmdb_id, 513692)
         self.assertEqual(cache["30174085"]["type"], "movie")
         self.assertEqual(subject._douban_chain_cooldown_until, 160.0)
+
+        class FailingResolver:
+            calls = 0
+
+            def resolve_tmdb_by_title(self, _media_ref):
+                type(self).calls += 1
+                return None
+
+        failed_cache = {}
+        missing = MediaRef(douban_id="999", title="无法识别条目", year=2024)
+        self.assertIsNone(
+            subject._resolve_media_ref(missing, failed_cache, FailingResolver())
+        )
+        self.assertTrue(failed_cache["999"]["failed"])
+        self.assertIsNone(
+            subject._resolve_media_ref(missing, failed_cache, FailingResolver())
+        )
+        self.assertEqual(FailingResolver.calls, 1)
+        failed_cache["999"]["failed_at"] = -100000
+        self.assertIsNone(
+            subject._resolve_media_ref(missing, failed_cache, FailingResolver())
+        )
+        self.assertEqual(FailingResolver.calls, 2)
 
     def test_large_douban_batch_uses_parallel_title_resolution(self):
         source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
@@ -739,6 +774,45 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertTrue(resolved.items[0].poster_url.endswith("/list.jpg"))
         self.assertTrue(detail.poster_url.endswith("/detail.jpg"))
 
+    def test_tmdb_v3_list_reads_every_page_up_to_configured_limit(self):
+        class PagedRequestUtils:
+            pages = []
+
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def get_res(self, _url, params=None):
+                page = int((params or {}).get("page") or 1)
+                type(self).pages.append(page)
+                start = 1 if page == 1 else 21
+                count = 20 if page == 1 else 5
+                return FakeResponse(
+                    {
+                        "name": "分页片单",
+                        "description": "完整简介",
+                        "item_count": 25,
+                        "total_pages": 2,
+                        "items": [
+                            {
+                                "id": index,
+                                "media_type": "movie",
+                                "title": f"电影 {index}",
+                                "release_date": "2024-01-01",
+                            }
+                            for index in range(start, start + count)
+                        ],
+                    }
+                )
+
+        PagedRequestUtils.pages = []
+        resolver = sources.SourceResolver(max_items=2000)
+        with patch.object(sources, "RequestUtils", PagedRequestUtils):
+            resolved = resolver._fetch_tmdb_v3("8648821")
+        self.assertEqual(PagedRequestUtils.pages, [1, 2])
+        self.assertEqual(len(resolved.items), 25)
+        self.assertEqual(resolved.reported_total, 25)
+        self.assertEqual(resolved.description, "完整简介")
+
     def test_subscribe_missing_filters_preview_and_reports_progress(self):
         source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -908,6 +982,9 @@ class SmartCollectionsTests(unittest.TestCase):
             self.assertEqual(restored["created"], 1)
             self.assertEqual(restored["failed"], 0)
             self.assertEqual(fake.restored[-1][1], b"poster")
+            deleted = manager.delete_backup(backup["backup_id"])
+            self.assertTrue(deleted["deleted"])
+            self.assertFalse((Path(directory) / backup["backup_id"]).exists())
             with self.assertRaises(ValueError):
                 manager.restore_backup("../outside.zip", {"smart1"})
 
@@ -1006,6 +1083,89 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertIn("source.item_count", frontend)
         self.assertIn("/collections/resync/all", frontend)
         self.assertIn("/collections/schedule", frontend)
+        self.assertIn("/cache/export", frontend)
+        self.assertIn("/settings", frontend)
+        self.assertIn("/collections/tools/backup/delete", frontend)
+        self.assertIn("导出映射缓存", frontend)
+        self.assertIn("解析上限", frontend)
+
+        seed = json.loads(
+            (PLUGIN / "assets" / "douban_tmdb_seed.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(seed["version"], 1)
+        self.assertIsInstance(seed["mappings"], dict)
+        backend = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("_load_douban_cache", backend)
+        self.assertIn("github_seed", backend)
+
+    def test_partial_source_results_never_remove_existing_collection_members(self):
+        source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        method = next(
+            node
+            for item in tree.body
+            if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
+            for node in item.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_safe_sync_mode"
+        )
+        namespace = {
+            "Any": Any,
+            "Dict": Dict,
+            "List": list,
+            "Optional": Optional,
+            "Tuple": tuple,
+        }
+        exec(
+            "class Subject:\n"
+            + "\n".join(f"    {line}" for line in ast.unparse(method).splitlines()),
+            namespace,
+        )
+        guard = namespace["Subject"]._safe_sync_mode
+        mode, reason = guard(
+            "sync",
+            source_count=20,
+            reported_total=250,
+            matched_count=20,
+            previous={"total_count": 250, "matched_count": 242},
+        )
+        self.assertEqual(mode, "append")
+        self.assertIn("20/250", reason)
+        healthy_mode, healthy_reason = guard(
+            "sync",
+            source_count=250,
+            reported_total=250,
+            matched_count=242,
+            previous={"total_count": 250, "matched_count": 242},
+        )
+        self.assertEqual(healthy_mode, "sync")
+        self.assertIsNone(healthy_reason)
+
+    def test_mapping_export_contains_only_local_successful_results(self):
+        source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        method = next(
+            node
+            for item in tree.body
+            if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
+            for node in item.body
+            if isinstance(node, ast.FunctionDef) and node.name == "api_cache_export"
+        )
+        namespace = {"Any": Any, "Dict": Dict}
+        exec(
+            "class Subject:\n"
+            + "\n".join(f"    {line}" for line in ast.unparse(method).splitlines()),
+            namespace,
+        )
+        subject = namespace["Subject"]()
+        subject.get_data = lambda _key: {
+            "100": {"type": "movie", "tmdb_id": 10, "title": "有效映射", "year": 2024},
+            "101": {"type": "movie", "tmdb_id": 11, "failed": True},
+            "102": {"type": "tv", "tmdb_id": 12, "source": "github_seed"},
+        }
+        subject._now = lambda: "2026-07-03T12:00:00+08:00"
+        exported = subject.api_cache_export()["data"]
+        self.assertEqual(exported["mapping_count"], 1)
+        self.assertEqual(set(exported["mappings"]), {"100"})
 
     def test_collection_poster_generate_and_normalize(self):
         source_images = [
@@ -1050,6 +1210,13 @@ class SmartCollectionsTests(unittest.TestCase):
             "SMART COLLECTION",
             (PLUGIN / "poster.py").read_text(encoding="utf-8"),
         )
+        draw = ImageDraw.Draw(Image.new("RGB", (1000, 1500), "black"))
+        for title in ("IMDb Top 250 TV Shows", "Letterboxd's Top 500 Films"):
+            _font, lines, _line_height = poster.CollectionPosterBuilder._fit_title(
+                draw, title
+            )
+            self.assertLessEqual(len(lines), 2)
+            self.assertEqual(" ".join(lines).split(), title.split())
 
 
 if __name__ == "__main__":

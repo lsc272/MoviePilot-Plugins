@@ -41,6 +41,8 @@ const previewTask = ref({ running: false, progress: 0, message: '' })
 const managedScheduleEnabled = ref(false)
 const managedScheduleCron = ref('0 4 * * *')
 const catalogPolling = ref(false)
+const pageMaxItems = ref(2000)
+const pageSyncMode = ref('sync')
 
 const pluginBase = computed(() => `plugin/${props.pluginId || 'SmartCollections'}`)
 const sourceItems = computed(() => status.value.catalog?.[sourceTab.value] || [])
@@ -79,9 +81,13 @@ async function loadStatus() {
     previewTask.value = status.value.preview_task || previewTask.value
     managedScheduleEnabled.value = Boolean(status.value.managed_schedule?.enabled)
     managedScheduleCron.value = status.value.managed_schedule?.cron || '0 4 * * *'
+    pageMaxItems.value = Number(status.value.settings?.max_items || 2000)
+    pageSyncMode.value = status.value.settings?.sync_mode || 'sync'
     const backups = status.value.collection_tools?.backups || []
     if (backups.length && !backups.some(item => item.id === selectedBackupId.value)) {
       selectedBackupId.value = backups[0].id
+    } else if (!backups.length) {
+      selectedBackupId.value = ''
     }
     if (status.value.catalog_refreshing) refreshCatalog()
   } catch (err) {
@@ -167,9 +173,11 @@ async function syncPreview() {
       preview_id: preview.value.preview_id,
       name: collectionName.value.trim(),
       selected_keys: selectedPreviewKeys.value,
+      mode: pageSyncMode.value,
     }))
     await loadStatus()
     notice.value = `已同步「${result.name}」：匹配 ${result.matched}，新增 ${result.added}，移除 ${result.removed}`
+      + (result.sync_guard ? `；安全保护已启用，本次只追加未删除：${result.sync_guard}` : '')
   } catch (err) {
     error.value = err?.message || '同步失败'
   } finally {
@@ -243,6 +251,46 @@ async function exportTemplates() {
   const payload = JSON.stringify({ version: 1, templates: status.value.templates || [] }, null, 2)
   await navigator.clipboard.writeText(payload)
   notice.value = '模板 JSON 已复制到剪贴板'
+}
+
+async function exportMappingCache() {
+  actionLoading.value = 'export-cache'
+  clearMessages()
+  try {
+    const payload = assertResponse(await props.api.get(`${pluginBase.value}/cache/export`)) || {}
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `smartcollections-douban-tmdb-mappings-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+    notice.value = `已导出 ${payload.mapping_count || 0} 条本机成功映射；请通过 GitHub PR 提交审核后再进入共享种子。`
+  } catch (err) {
+    error.value = err?.message || '导出映射缓存失败'
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
+async function savePageSettings() {
+  actionLoading.value = 'save-page-settings'
+  clearMessages()
+  try {
+    const data = assertResponse(await props.api.post(`${pluginBase.value}/settings`, {
+      max_items: Number(pageMaxItems.value),
+      sync_mode: pageSyncMode.value,
+    })) || {}
+    pageMaxItems.value = data.max_items || 2000
+    pageSyncMode.value = data.sync_mode || 'sync'
+    notice.value = '解析上限与默认更新模式已保存，下一次预览或同步生效。'
+  } catch (err) {
+    error.value = err?.message || '保存工作台设置失败'
+  } finally {
+    actionLoading.value = ''
+  }
 }
 
 async function importTemplates() {
@@ -509,6 +557,27 @@ async function restoreOtherCollections() {
   await startCollectionTool('restore', { backup_id: backup.id })
 }
 
+async function deleteSelectedBackup() {
+  const backup = backupOptions.value.find(item => item.id === selectedBackupId.value)
+  if (!backup) {
+    error.value = '请先选择一个合集备份'
+    return
+  }
+  if (!window.confirm(`永久删除 ${backup.created_at || backup.id} 的本地备份？此操作不会影响 Emby 中的合集，但无法撤销。`)) return
+  actionLoading.value = 'delete-backup'
+  clearMessages()
+  try {
+    assertResponse(await props.api.post(`${pluginBase.value}/collections/tools/backup/delete`, { backup_id: backup.id }))
+    selectedBackupId.value = ''
+    await loadStatus()
+    notice.value = '所选本地备份已删除。'
+  } catch (err) {
+    error.value = err?.message || '删除备份失败'
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
 function openCleanupDialog() {
   cleanupConfirmed.value = false
   cleanupDialog.value = true
@@ -572,6 +641,38 @@ onMounted(loadStatus)
             <VBtn variant="text" prepend-icon="mdi-select-all" @click="selectAllCurrent">{{ allCurrentSelected ? '取消本页全选' : '本页全选' }}</VBtn>
             <VBtn color="primary" prepend-icon="mdi-sync" :loading="actionLoading === 'batch-sync'" @click="batchSync">批量同步（{{ selectedSources.length }}）</VBtn>
           </VCardTitle>
+          <VDivider />
+          <div class="workspace-settings d-flex flex-wrap align-center ga-2 px-5 py-3">
+            <VTextField
+              v-model.number="pageMaxItems"
+              type="number"
+              min="1"
+              max="5000"
+              label="解析上限"
+              density="compact"
+              hide-details
+              class="setting-field"
+            />
+            <VSelect
+              v-model="pageSyncMode"
+              :items="[{ title: '完全同步（增删）', value: 'sync' }, { title: '仅追加', value: 'append' }]"
+              label="默认更新模式"
+              density="compact"
+              hide-details
+              class="setting-field"
+            />
+            <VBtn size="small" color="primary" variant="tonal" :loading="actionLoading === 'save-page-settings'" @click="savePageSettings">保存</VBtn>
+            <VSpacer />
+            <VBtn size="small" variant="tonal" prepend-icon="mdi-database-export-outline" :loading="actionLoading === 'export-cache'" @click="exportMappingCache">导出映射缓存</VBtn>
+            <VBtn
+              size="small"
+              variant="text"
+              prepend-icon="mdi-source-pull"
+              href="https://github.com/lsc272/MoviePilot-Plugins/edit/main/plugins.v2/smartcollections/assets/douban_tmdb_seed.json"
+              target="_blank"
+              rel="noopener"
+            >提交共享 PR</VBtn>
+          </div>
           <VDivider />
           <VCardText class="pa-5">
             <VTabs v-model="sourceTab" density="comfortable" color="primary" class="mb-4">
@@ -724,6 +825,14 @@ onMounted(loadStatus)
               :loading="actionLoading === 'collection-tool:restore'"
               @click="restoreOtherCollections"
             >恢复所选备份</VBtn>
+            <VBtn
+              color="error"
+              variant="text"
+              prepend-icon="mdi-delete-outline"
+              :disabled="collectionTools.running || !selectedBackupId"
+              :loading="actionLoading === 'delete-backup'"
+              @click="deleteSelectedBackup"
+            >删除所选备份</VBtn>
             <VSpacer />
             <VBtn
               color="error"
@@ -738,35 +847,30 @@ onMounted(loadStatus)
 
         <div class="text-h6 mb-1">已同步合集</div>
         <div class="text-body-2 text-medium-emphasis mb-4">重新同步来源，或同时删除管理记录和 Emby 合集。</div>
-        <VRow v-if="status.collections?.length">
-          <VCol v-for="collection in status.collections" :key="collection.id" cols="12" md="6">
-            <VCard rounded="xl" variant="outlined">
-              <VCardText>
-                <div class="d-flex align-start ga-3">
-                  <VAvatar color="green" variant="tonal" rounded="lg"><VIcon icon="mdi-folder-star" /></VAvatar>
-                  <div class="flex-grow-1">
-                    <div class="text-h6">{{ collection.name }}</div>
-                    <div class="text-body-2 text-medium-emphasis">{{ collection.source }} · 最近同步 {{ collection.last_sync_at }}</div>
-                    <a v-if="collection.source_url" :href="collection.source_url" target="_blank" rel="noopener" class="source-link text-caption">
-                      <VIcon icon="mdi-link-variant" size="small" class="me-1" />查看片单来源
-                    </a>
-                  </div>
-                  <VChip color="success" variant="tonal">{{ collection.matched_count }}/{{ collection.total_count }}</VChip>
-                </div>
-                <VChip v-if="collection.poster_source" size="small" variant="tonal" color="purple" class="mt-3">
+        <div v-if="status.collections?.length" class="managed-list d-flex flex-column ga-2">
+          <VCard v-for="collection in status.collections" :key="collection.id" rounded="lg" variant="outlined">
+            <VCardText class="managed-row d-flex flex-wrap align-center ga-3 pa-3">
+              <VAvatar color="green" variant="tonal" rounded="lg" size="38"><VIcon icon="mdi-folder-star" /></VAvatar>
+              <div class="managed-info flex-grow-1 min-width-0">
+                <div class="font-weight-medium text-truncate">{{ collection.name }}</div>
+                <div class="text-caption text-medium-emphasis text-truncate">{{ collection.source }} · 最近同步 {{ collection.last_sync_at }}</div>
+              </div>
+              <div class="managed-chips d-flex align-center ga-2">
+                <VChip color="success" variant="tonal" size="small">{{ collection.matched_count }}/{{ collection.total_count }}</VChip>
+                <VChip v-if="collection.poster_source" size="small" variant="tonal" color="purple">
                   {{ collection.poster_source === 'custom' ? '自定义海报' : '自动海报' }}
                 </VChip>
-              </VCardText>
-              <VCardActions class="flex-wrap">
-                <VBtn variant="tonal" prepend-icon="mdi-sync" :loading="actionLoading === `resync:${collection.id}`" @click="resyncCollection(collection)">重新同步</VBtn>
-                <VBtn variant="tonal" prepend-icon="mdi-eye" :loading="actionLoading === `preview:collection:${collection.id}`" @click="previewCollection(collection)">预览匹配</VBtn>
-                <VBtn variant="tonal" prepend-icon="mdi-image-edit" @click="openPosterManager(collection)">海报</VBtn>
-                <VSpacer />
-                <VBtn color="error" variant="text" prepend-icon="mdi-delete-outline" @click="deleteCollection(collection)">删除</VBtn>
-              </VCardActions>
-            </VCard>
-          </VCol>
-        </VRow>
+              </div>
+              <div class="managed-actions d-flex flex-wrap align-center ga-1">
+                <VBtn v-if="collection.source_url" :href="collection.source_url" target="_blank" rel="noopener" size="small" variant="text" prepend-icon="mdi-link-variant">来源</VBtn>
+                <VBtn size="small" variant="tonal" prepend-icon="mdi-sync" :loading="actionLoading === `resync:${collection.id}`" @click="resyncCollection(collection)">重新同步</VBtn>
+                <VBtn size="small" variant="tonal" prepend-icon="mdi-eye" :loading="actionLoading === `preview:collection:${collection.id}`" @click="previewCollection(collection)">预览匹配</VBtn>
+                <VBtn size="small" variant="text" prepend-icon="mdi-image-edit" @click="openPosterManager(collection)">海报</VBtn>
+                <VBtn size="small" color="error" variant="text" icon="mdi-delete-outline" title="删除合集" @click="deleteCollection(collection)" />
+              </div>
+            </VCardText>
+          </VCard>
+        </div>
         <VAlert v-else type="info" variant="tonal">还没有由本插件同步并管理的 Emby 合集。</VAlert>
       </VWindowItem>
     </VWindow>
@@ -916,7 +1020,7 @@ onMounted(loadStatus)
         <VCardTitle class="pa-5">设置「{{ posterCollection?.name }}」合集海报</VCardTitle>
         <VDivider />
         <VCardText class="pa-5">
-          <VAlert type="info" variant="tonal" class="mb-5">自动生成会使用片单中的多张海报组成倾斜海报墙，并叠加由下向上的浅色渐变与自适应标题；也可以上传自己的图片覆盖。</VAlert>
+          <VAlert type="info" variant="tonal" class="mb-5">自动生成会使用片单中的多张海报组成倾斜海报墙，并叠加由下向上的黑色渐变与按词换行标题；也可以上传自己的图片覆盖。</VAlert>
           <VBtn
             block
             size="large"
@@ -960,6 +1064,10 @@ onMounted(loadStatus)
 .preview-actions { flex: 1 1 680px; min-width: 0; }
 .preview-description { max-width: 900px; line-height: 1.65; white-space: pre-line; }
 .schedule-cron { min-width: 240px; max-width: 360px; }
+.setting-field { min-width: 180px; max-width: 230px; }
+.managed-info { min-width: 210px; }
+.managed-chips { flex: 0 0 auto; }
+.managed-actions { flex: 0 0 auto; }
 .preview-anchor { scroll-margin-top: 72px; }
 .preview-table { max-height: 650px; overflow: auto; border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); border-radius: 12px; }
 .poster { background: rgba(var(--v-theme-on-surface), .06); }
@@ -983,6 +1091,10 @@ onMounted(loadStatus)
   .source-identity { max-width: calc(100% - 56px); }
   .source-actions { width: 100%; padding-left: 52px; }
   .source-actions > .v-btn { flex: 1 1 120px; }
+  .workspace-settings > .setting-field { flex: 1 1 160px; min-width: 140px; max-width: none; }
+  .managed-info { min-width: calc(100% - 54px); }
+  .managed-chips, .managed-actions { width: 100%; padding-left: 50px; }
+  .managed-actions > .v-btn { flex: 1 1 auto; }
   .smart-page :deep(.v-card-title) { padding: 16px !important; }
   .smart-page :deep(.v-card-title .v-btn) { flex: 1 1 auto; }
 }
