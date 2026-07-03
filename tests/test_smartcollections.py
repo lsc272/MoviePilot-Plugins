@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 from unittest.mock import patch
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -982,6 +982,9 @@ class SmartCollectionsTests(unittest.TestCase):
             self.assertEqual(restored["created"], 1)
             self.assertEqual(restored["failed"], 0)
             self.assertEqual(fake.restored[-1][1], b"poster")
+            deleted = manager.delete_backup(backup["backup_id"])
+            self.assertTrue(deleted["deleted"])
+            self.assertFalse((Path(directory) / backup["backup_id"]).exists())
             with self.assertRaises(ValueError):
                 manager.restore_backup("../outside.zip", {"smart1"})
 
@@ -1080,6 +1083,11 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertIn("source.item_count", frontend)
         self.assertIn("/collections/resync/all", frontend)
         self.assertIn("/collections/schedule", frontend)
+        self.assertIn("/cache/export", frontend)
+        self.assertIn("/settings", frontend)
+        self.assertIn("/collections/tools/backup/delete", frontend)
+        self.assertIn("导出映射缓存", frontend)
+        self.assertIn("解析上限", frontend)
 
         seed = json.loads(
             (PLUGIN / "assets" / "douban_tmdb_seed.json").read_text(encoding="utf-8")
@@ -1089,6 +1097,75 @@ class SmartCollectionsTests(unittest.TestCase):
         backend = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
         self.assertIn("_load_douban_cache", backend)
         self.assertIn("github_seed", backend)
+
+    def test_partial_source_results_never_remove_existing_collection_members(self):
+        source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        method = next(
+            node
+            for item in tree.body
+            if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
+            for node in item.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_safe_sync_mode"
+        )
+        namespace = {
+            "Any": Any,
+            "Dict": Dict,
+            "List": list,
+            "Optional": Optional,
+            "Tuple": tuple,
+        }
+        exec(
+            "class Subject:\n"
+            + "\n".join(f"    {line}" for line in ast.unparse(method).splitlines()),
+            namespace,
+        )
+        guard = namespace["Subject"]._safe_sync_mode
+        mode, reason = guard(
+            "sync",
+            source_count=20,
+            reported_total=250,
+            matched_count=20,
+            previous={"total_count": 250, "matched_count": 242},
+        )
+        self.assertEqual(mode, "append")
+        self.assertIn("20/250", reason)
+        healthy_mode, healthy_reason = guard(
+            "sync",
+            source_count=250,
+            reported_total=250,
+            matched_count=242,
+            previous={"total_count": 250, "matched_count": 242},
+        )
+        self.assertEqual(healthy_mode, "sync")
+        self.assertIsNone(healthy_reason)
+
+    def test_mapping_export_contains_only_local_successful_results(self):
+        source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        method = next(
+            node
+            for item in tree.body
+            if isinstance(item, ast.ClassDef) and item.name == "SmartCollections"
+            for node in item.body
+            if isinstance(node, ast.FunctionDef) and node.name == "api_cache_export"
+        )
+        namespace = {"Any": Any, "Dict": Dict}
+        exec(
+            "class Subject:\n"
+            + "\n".join(f"    {line}" for line in ast.unparse(method).splitlines()),
+            namespace,
+        )
+        subject = namespace["Subject"]()
+        subject.get_data = lambda _key: {
+            "100": {"type": "movie", "tmdb_id": 10, "title": "有效映射", "year": 2024},
+            "101": {"type": "movie", "tmdb_id": 11, "failed": True},
+            "102": {"type": "tv", "tmdb_id": 12, "source": "github_seed"},
+        }
+        subject._now = lambda: "2026-07-03T12:00:00+08:00"
+        exported = subject.api_cache_export()["data"]
+        self.assertEqual(exported["mapping_count"], 1)
+        self.assertEqual(set(exported["mappings"]), {"100"})
 
     def test_collection_poster_generate_and_normalize(self):
         source_images = [
@@ -1133,6 +1210,13 @@ class SmartCollectionsTests(unittest.TestCase):
             "SMART COLLECTION",
             (PLUGIN / "poster.py").read_text(encoding="utf-8"),
         )
+        draw = ImageDraw.Draw(Image.new("RGB", (1000, 1500), "black"))
+        for title in ("IMDb Top 250 TV Shows", "Letterboxd's Top 500 Films"):
+            _font, lines, _line_height = poster.CollectionPosterBuilder._fit_title(
+                draw, title
+            )
+            self.assertLessEqual(len(lines), 2)
+            self.assertEqual(" ".join(lines).split(), title.split())
 
 
 if __name__ == "__main__":

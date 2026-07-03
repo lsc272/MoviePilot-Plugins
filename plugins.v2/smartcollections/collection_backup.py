@@ -186,6 +186,12 @@ class EmbyCollectionBackupManager:
             "warnings": warnings[:20],
         }
 
+    def delete_backup(self, backup_id: str) -> dict:
+        path = self._backup_path(backup_id)
+        size = path.stat().st_size
+        path.unlink()
+        return {"backup_id": path.name, "deleted": True, "size": size}
+
     def backup_and_cleanup(
         self,
         protected_ids: Iterable[str],

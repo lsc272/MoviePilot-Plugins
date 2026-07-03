@@ -40,7 +40,7 @@ from .sources import (
 class SmartCollections(_PluginBase):
     _LEGACY_OSCAR_TITLE = "历届奥斯卡最佳动画长片及提名"
     _OSCAR_BEST_PICTURE_TITLE = "奥斯卡历届最佳影片"
-    _POSTER_VERSION = 4
+    _POSTER_VERSION = 5
     _DOUBAN_FAILURE_CACHE_TTL = 6 * 3600
     _LEGACY_CATALOG_TITLES = {
         ("tmdb_builtin", "finly_golden_globes", "历届金球奖电影精选"): "金球奖最佳剧情片",
@@ -69,7 +69,7 @@ class SmartCollections(_PluginBase):
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.4.1"
+    plugin_version = "0.5.0"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -264,11 +264,25 @@ class SmartCollections(_PluginBase):
                 "summary": "获取智能合集页面数据",
             },
             {
+                "path": "/settings",
+                "endpoint": self.api_settings,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "保存工作台解析上限与默认更新模式",
+            },
+            {
                 "path": "/catalog",
                 "endpoint": self.api_catalog,
                 "methods": ["GET"],
                 "auth": "bear",
                 "summary": "获取动态片单目录元数据",
+            },
+            {
+                "path": "/cache/export",
+                "endpoint": self.api_cache_export,
+                "methods": ["GET"],
+                "auth": "bear",
+                "summary": "导出本地豆瓣到 TMDB 成功映射",
             },
             {
                 "path": "/preview",
@@ -367,6 +381,13 @@ class SmartCollections(_PluginBase):
                 "methods": ["POST"],
                 "auth": "bear",
                 "summary": "恢复非智能合集备份",
+            },
+            {
+                "path": "/collections/tools/backup/delete",
+                "endpoint": self.api_collection_tools_backup_delete,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "删除指定的其他合集备份",
             },
             {
                 "path": "/collections/tools/cleanup",
@@ -806,6 +827,10 @@ class SmartCollections(_PluginBase):
                 "history": self.get_data("history") or [],
                 "running": self._run_lock.locked(),
                 "server": self._emby_server,
+                "settings": {
+                    "max_items": self._max_items,
+                    "sync_mode": self._sync_mode,
+                },
                 "managed_schedule": {
                     "enabled": self._managed_schedule_enabled,
                     "cron": self._managed_schedule_cron,
@@ -1260,6 +1285,22 @@ class SmartCollections(_PluginBase):
         return self._start_collection_tool(
             "restore", {"backup_id": backup_id}
         )
+
+    def api_collection_tools_backup_delete(
+        self, payload: dict = Body(...)
+    ) -> Dict[str, Any]:
+        backup_id = str((payload or {}).get("backup_id") or "").strip()
+        if not backup_id:
+            return {"success": False, "message": "请选择要删除的备份"}
+        if not self._collection_tools_lock.acquire(blocking=False):
+            return {"success": False, "message": "其他合集工具任务正在运行"}
+        try:
+            result = self._collection_backup_manager().delete_backup(backup_id)
+            return {"success": True, "data": result, "message": "备份已删除"}
+        except Exception as exc:
+            return {"success": False, "message": str(exc)}
+        finally:
+            self._collection_tools_lock.release()
 
     def api_collection_tools_cleanup(
         self, payload: dict = Body(...)
@@ -1928,6 +1969,55 @@ class SmartCollections(_PluginBase):
             "douban_cache": self._load_douban_cache(),
         }
 
+    def api_settings(self, payload: dict = Body(...)) -> Dict[str, Any]:
+        payload = payload or {}
+        sync_mode = str(payload.get("sync_mode") or "sync").strip().lower()
+        if sync_mode not in {"sync", "append"}:
+            return {"success": False, "message": "更新模式必须为同步或仅追加"}
+        self._max_items = self._safe_int(payload.get("max_items"), 2000, 1, 5000)
+        self._sync_mode = sync_mode
+        self._save_config()
+        return {
+            "success": True,
+            "data": {
+                "max_items": self._max_items,
+                "sync_mode": self._sync_mode,
+            },
+            "message": "工作台设置已保存",
+        }
+
+    def api_cache_export(self) -> Dict[str, Any]:
+        cache = self.get_data("douban_tmdb_cache") or {}
+        mappings: Dict[str, Dict[str, Any]] = {}
+        if isinstance(cache, dict):
+            for douban_id, item in cache.items():
+                if not isinstance(item, dict) or item.get("failed"):
+                    continue
+                if item.get("source") == "github_seed":
+                    continue
+                if item.get("type") not in {"movie", "tv"} or not item.get("tmdb_id"):
+                    continue
+                try:
+                    tmdb_id = int(item.get("tmdb_id"))
+                except (TypeError, ValueError):
+                    continue
+                mappings[str(douban_id)] = {
+                    "type": item.get("type"),
+                    "tmdb_id": tmdb_id,
+                    "title": item.get("title"),
+                    "year": item.get("year"),
+                }
+        return {
+            "success": True,
+            "data": {
+                "version": 1,
+                "exported_at": self._now(),
+                "description": "请将 mappings 合并到共享种子并通过 GitHub PR 提交审核。",
+                "mappings": mappings,
+                "mapping_count": len(mappings),
+            },
+        }
+
     def _load_douban_cache(self) -> Dict[str, dict]:
         """Merge reviewed bundled mappings with the user's persistent cache."""
 
@@ -2253,6 +2343,72 @@ class SmartCollections(_PluginBase):
                 return None
             return preview
 
+    @staticmethod
+    def _source_key(source_spec: Dict[str, Any]) -> str:
+        identity = dict(source_spec or {})
+        for field in ("name", "mode", "description"):
+            identity.pop(field, None)
+        return json.dumps(identity, ensure_ascii=False, sort_keys=True)
+
+    def _managed_record_for_spec(
+        self, source_spec: Dict[str, Any], record_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        records = self._load_managed_collections()
+        if record_id:
+            match = next(
+                (item for item in records if str(item.get("id")) == str(record_id)),
+                None,
+            )
+            if match:
+                return match
+        source_key = self._source_key(source_spec)
+        for item in records:
+            if item.get("source_key") == source_key:
+                return item
+            saved = item.get("source_spec") or {}
+            if (
+                str(saved.get("source_type") or "")
+                == str(source_spec.get("source_type") or "")
+                and str(saved.get("list_id") or "")
+                == str(source_spec.get("list_id") or "")
+                and str(saved.get("url") or "") == str(source_spec.get("url") or "")
+                and str(saved.get("template_id") or "")
+                == str(source_spec.get("template_id") or "")
+            ):
+                return item
+        return None
+
+    @staticmethod
+    def _safe_sync_mode(
+        requested_mode: str,
+        source_count: int,
+        reported_total: Optional[int],
+        matched_count: int,
+        previous: Optional[Dict[str, Any]],
+    ) -> Tuple[str, Optional[str]]:
+        if requested_mode != "sync":
+            return "append", None
+        reasons: List[str] = []
+        try:
+            expected_total = int(reported_total) if reported_total is not None else None
+        except (TypeError, ValueError):
+            expected_total = None
+        if expected_total is not None and source_count < expected_total:
+            reasons.append(f"来源仅返回 {source_count}/{expected_total} 项")
+        previous_total = int((previous or {}).get("total_count") or 0)
+        previous_matched = int(
+            (previous or {}).get("match_baseline")
+            or (previous or {}).get("matched_count")
+            or 0
+        )
+        if previous_total >= 20 and source_count < previous_total * 0.7:
+            reasons.append(f"来源数量较上次 {previous_total} 项异常下降")
+        if previous_matched >= 20 and matched_count < previous_matched * 0.7:
+            reasons.append(f"匹配数量较上次 {previous_matched} 项异常下降")
+        if reasons:
+            return "append", "；".join(reasons)
+        return "sync", None
+
     def _sync_preview_data(
         self,
         preview: Dict[str, Any],
@@ -2273,10 +2429,26 @@ class SmartCollections(_PluginBase):
             and (not selected or str(row.get("key")) in selected)
         ]
         item_ids = list(dict.fromkeys(str(row["emby_item_id"]) for row in rows))
+        requested_mode = mode if mode in {"sync", "append"} else self._sync_mode
+        previous = self._managed_record_for_spec(
+            preview.get("spec") or {}, record_id=record_id
+        )
+        effective_mode, guard_reason = self._safe_sync_mode(
+            requested_mode=requested_mode,
+            source_count=int(preview.get("total_count") or 0),
+            reported_total=preview.get("source_reported_total"),
+            matched_count=int(preview.get("matched_count") or len(item_ids)),
+            previous=previous,
+        )
+        if guard_reason:
+            logger.warning(
+                f"智能合集 {name} 检测到来源或匹配结果不完整，"
+                f"本次禁止删除并降级为追加：{guard_reason}"
+            )
         sync_result = self._emby_client().sync_collection(
             name=name,
             item_ids=item_ids,
-            mode=mode if mode in {"sync", "append"} else self._sync_mode,
+            mode=effective_mode,
             overview=preview.get("description") or None,
         )
         result = {
@@ -2285,12 +2457,16 @@ class SmartCollections(_PluginBase):
             "source": preview.get("source"),
             "source_items": preview.get("total_count", 0),
             "matched": len(item_ids),
+            "resolved_matched": int(preview.get("matched_count") or len(item_ids)),
             "missing": max(0, int(preview.get("total_count") or 0) - len(item_ids)),
             "collection_id": sync_result.collection_id,
             "created": sync_result.created,
             "added": sync_result.added,
             "removed": sync_result.removed,
             "description": preview.get("description") or "",
+            "requested_mode": requested_mode,
+            "effective_mode": effective_mode,
+            "sync_guard": guard_reason,
         }
         managed = self._upsert_managed_collection(
             preview=preview,
@@ -2331,20 +2507,10 @@ class SmartCollections(_PluginBase):
     ) -> Dict[str, Any]:
         records = self._load_managed_collections()
         source_spec = preview.get("spec") or {}
-        source_identity = dict(source_spec)
-        source_identity.pop("name", None)
-        source_identity.pop("mode", None)
-        source_key = json.dumps(source_identity, ensure_ascii=False, sort_keys=True)
-        current = next(
-            (
-                item
-                for item in records
-                if (record_id and str(item.get("id")) == str(record_id))
-                or (not record_id and item.get("source_key") == source_key)
-            ),
-            None,
-        )
+        source_key = self._source_key(source_spec)
+        current = self._managed_record_for_spec(source_spec, record_id=record_id)
         now = self._now()
+        guarded = bool(result.get("sync_guard") and current)
         record = {
             "id": str(current.get("id")) if current else uuid.uuid4().hex,
             "name": result.get("name"),
@@ -2356,9 +2522,29 @@ class SmartCollections(_PluginBase):
             "source_key": source_key,
             "mode": mode if mode in {"sync", "append"} else self._sync_mode,
             "emby_collection_id": result.get("collection_id"),
-            "total_count": result.get("source_items", 0),
-            "matched_count": result.get("matched", 0),
-            "missing_count": result.get("missing", 0),
+            "total_count": (
+                current.get("total_count", 0)
+                if guarded
+                else result.get("source_items", 0)
+            ),
+            "matched_count": (
+                current.get("matched_count", 0)
+                if guarded
+                else result.get("matched", 0)
+            ),
+            "match_baseline": (
+                current.get("match_baseline", current.get("matched_count", 0))
+                if guarded
+                else result.get("resolved_matched", result.get("matched", 0))
+            ),
+            "missing_count": (
+                current.get("missing_count", 0)
+                if guarded
+                else result.get("missing", 0)
+            ),
+            "last_attempt_total": result.get("source_items", 0),
+            "last_attempt_matched": result.get("matched", 0),
+            "last_sync_guard": result.get("sync_guard"),
             "description": preview.get("description") or "",
             "created_at": current.get("created_at") if current else now,
             "last_sync_at": now,
@@ -2658,10 +2844,24 @@ class SmartCollections(_PluginBase):
             item_result["missing"] = max(
                 0, item_result["source_items"] - len(matched_ids)
             )
+            requested_mode = spec.mode or self._sync_mode
+            previous = self._managed_record_for_spec(asdict(spec))
+            effective_mode, guard_reason = self._safe_sync_mode(
+                requested_mode=requested_mode,
+                source_count=item_result["source_items"],
+                reported_total=resolved.reported_total,
+                matched_count=len(matched_ids),
+                previous=previous,
+            )
+            if guard_reason:
+                logger.warning(
+                    f"智能合集 {collection_name} 检测到来源或匹配结果不完整，"
+                    f"本次禁止删除并降级为追加：{guard_reason}"
+                )
             sync_result = emby.sync_collection(
                 name=collection_name,
                 item_ids=matched_ids,
-                mode=spec.mode or self._sync_mode,
+                mode=effective_mode,
                 overview=resolved.description or spec.description or None,
             )
             item_result.update(
@@ -2671,6 +2871,9 @@ class SmartCollections(_PluginBase):
                     "created": sync_result.created,
                     "added": sync_result.added,
                     "removed": sync_result.removed,
+                    "requested_mode": requested_mode,
+                    "effective_mode": effective_mode,
+                    "sync_guard": guard_reason,
                 }
             )
             poster_preview = {
@@ -2845,6 +3048,11 @@ class SmartCollections(_PluginBase):
             lines.append(
                 f"{state} {item.get('name') or '未命名'}：匹配 {item.get('matched', 0)}，"
                 f"新增 {item.get('added', 0)}，移除 {item.get('removed', 0)}"
+                + (
+                    f"（安全保护：{item.get('sync_guard')}，本次未删除）"
+                    if item.get("sync_guard")
+                    else ""
+                )
                 + (f"（{item.get('error')}）" if item.get("error") else "")
             )
         if run_record.get("error"):

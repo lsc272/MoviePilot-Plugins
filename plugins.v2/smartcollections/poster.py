@@ -1,4 +1,5 @@
 import io
+import re
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
@@ -200,7 +201,9 @@ class CollectionPosterBuilder:
 
         for size in range(112, 67, -4):
             font = cls._font(size)
-            lines = cls._wrap_text(draw, value, font, 890)
+            lines = cls._balanced_two_lines(draw, value, font, 890)
+            if not lines:
+                lines = cls._wrap_text(draw, value, font, 890)
             line_height = size + 24
             if len(lines) <= 2 and len(lines) * line_height <= 290:
                 return font, lines, line_height
@@ -396,26 +399,75 @@ class CollectionPosterBuilder:
     ) -> List[str]:
         lines: List[str] = []
         current = ""
+        tokens = re.findall(
+            r"[A-Za-z0-9]+(?:['’.-][A-Za-z0-9]+)*|\s+|.",
+            text.strip(),
+        )
+        pending_space = False
 
-        for char in text.strip():
-            candidate = f"{current}{char}"
-
-            try:
-                box = draw.textbbox((0, 0), candidate, font=font)
-                width = box[2] - box[0] + max(0, len(candidate) - 1) * cls.TITLE_TRACKING
-            except Exception:
-                width = len(candidate) * 40
-
-            if current and width > max_width:
-                lines.append(current)
-                current = char
+        for token in tokens:
+            if token.isspace():
+                pending_space = True
+                continue
+            separator = " " if pending_space and current else ""
+            pending_space = False
+            candidate = f"{current}{separator}{token}"
+            if not candidate:
+                continue
+            if current and cls._tracked_text_width(
+                draw, candidate, font, cls.TITLE_TRACKING
+            ) > max_width:
+                lines.append(current.rstrip())
+                current = token
             else:
                 current = candidate
 
-        if current:
-            lines.append(current)
+            # A single unbroken token can still exceed the line. Split only
+            # that exceptional token; ordinary Latin words always stay whole.
+            if current and cls._tracked_text_width(
+                draw, current, font, cls.TITLE_TRACKING
+            ) > max_width:
+                fragment = ""
+                for char in current:
+                    candidate = f"{fragment}{char}"
+                    if fragment and cls._tracked_text_width(
+                        draw, candidate, font, cls.TITLE_TRACKING
+                    ) > max_width:
+                        lines.append(fragment.rstrip())
+                        fragment = char.lstrip()
+                    else:
+                        fragment = candidate
+                current = fragment
+
+        if current.strip():
+            lines.append(current.strip())
 
         return lines or ["智能合集"]
+
+    @classmethod
+    def _balanced_two_lines(
+        cls,
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        font: ImageFont.ImageFont,
+        max_width: int,
+    ) -> List[str]:
+        """Choose a visually balanced word boundary for Latin/mixed titles."""
+
+        words = re.findall(r"\S+", text.strip())
+        if len(words) < 2:
+            return []
+        choices = []
+        for index in range(1, len(words)):
+            lines = [" ".join(words[:index]), " ".join(words[index:])]
+            widths = [
+                cls._tracked_text_width(draw, line, font, cls.TITLE_TRACKING)
+                for line in lines
+            ]
+            if max(widths) <= max_width:
+                score = max(widths) + abs(widths[0] - widths[1]) * 0.35
+                choices.append((score, lines))
+        return min(choices, key=lambda item: item[0])[1] if choices else []
 
     @staticmethod
     def _draw_text_with_tracking(
