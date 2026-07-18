@@ -85,7 +85,12 @@ class TmdbListClient:
                         "description": str(description or "").strip(),
                         "iso_639_1": language_code,
                         "iso_3166_1": country_code,
-                        "public": True,
+                        # A personal export does not need to be public.  TMDB
+                        # applies its anti-spam content review to public list
+                        # creation, which can reject legitimate repeated
+                        # collection exports.  Users can still publish the
+                        # finished list later from TMDB itself.
+                        "public": False,
                     },
                 )
                 try:

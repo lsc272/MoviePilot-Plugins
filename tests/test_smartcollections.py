@@ -203,7 +203,7 @@ class SmartCollectionsTests(unittest.TestCase):
         self.assertEqual(FakeRequestUtils.post_calls[0]["json"]["name"], "豆瓣测试")
         self.assertEqual(FakeRequestUtils.post_calls[0]["json"]["iso_639_1"], "zh")
         self.assertEqual(FakeRequestUtils.post_calls[0]["json"]["iso_3166_1"], "CN")
-        self.assertTrue(FakeRequestUtils.post_calls[0]["json"]["public"])
+        self.assertFalse(FakeRequestUtils.post_calls[0]["json"]["public"])
         self.assertEqual(
             FakeRequestUtils.post_calls[1]["json"],
             {"items": [{"media_type": "movie", "media_id": 101}, {"media_type": "tv", "media_id": 202}]},

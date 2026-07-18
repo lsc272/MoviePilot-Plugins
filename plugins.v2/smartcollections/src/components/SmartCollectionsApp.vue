@@ -1152,6 +1152,9 @@ onMounted(loadStatus)
             <VAlert type="info" variant="tonal" density="compact" class="mb-4">
               仅导出已确认的 TMDB ID：电影 {{ tmdbExportableItems.filter(item => item.media_type === 'movie').length }} 个，剧集 {{ tmdbExportableItems.filter(item => item.media_type === 'tv').length }} 个。再次导出时默认写入同一来源对应的 TMDB 片单，TMDB 会自动忽略已有成员。
             </VAlert>
+            <VAlert type="info" variant="tonal" density="compact" class="mb-4">
+              新建片单默认仅自己可见，可避免 TMDB 对重复公开片单的垃圾内容拦截；如需公开，可在 TMDB 片单页面修改可见性。
+            </VAlert>
             <VTextField v-model="tmdbExportName" label="TMDB 片单名称" class="mb-3" />
             <VTextarea v-model="tmdbExportDescription" label="TMDB 片单简介" rows="3" auto-grow />
             <VSwitch v-model="tmdbExportCreateNew" color="primary" label="新建一份 TMDB 片单（不写入此前导出的同源片单）" hide-details class="mt-1" />
