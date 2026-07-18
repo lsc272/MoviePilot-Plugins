@@ -51,6 +51,7 @@ const tmdbAuthorizationUrl = ref('')
 const tmdbExportName = ref('')
 const tmdbExportDescription = ref('')
 const tmdbExportCreateNew = ref(false)
+const tmdbExportTargetListUrl = ref('')
 const tmdbExportResult = ref(null)
 
 const pluginBase = computed(() => `plugin/${props.pluginId || 'SmartCollections'}`)
@@ -205,6 +206,7 @@ function openTmdbExportDialog() {
   tmdbExportName.value = preview.value.title || ''
   tmdbExportDescription.value = preview.value.description || ''
   tmdbExportCreateNew.value = false
+  tmdbExportTargetListUrl.value = ''
   tmdbExportResult.value = null
   tmdbAuthorizationUrl.value = ''
   tmdbExportStatus.value = status.value.tmdb_export || tmdbExportStatus.value
@@ -268,6 +270,7 @@ async function exportToTmdb() {
       name: tmdbExportName.value.trim(),
       description: tmdbExportDescription.value.trim(),
       create_new: tmdbExportCreateNew.value,
+      target_list_url: tmdbExportTargetListUrl.value.trim(),
     })) || {}
     tmdbExportResult.value = result
     notice.value = `已写入 TMDB 片单，共 ${result.exported_count || 0} 个已识别项目。`
@@ -1155,6 +1158,7 @@ onMounted(loadStatus)
             <VAlert type="info" variant="tonal" density="compact" class="mb-4">
               新建片单默认仅自己可见，可避免 TMDB 对重复公开片单的垃圾内容拦截；如需公开，可在 TMDB 片单页面修改可见性。
             </VAlert>
+            <VTextField v-model="tmdbExportTargetListUrl" label="已有 TMDB 片单链接（可选）" placeholder="https://www.themoviedb.org/list/123456" hint="TMDB 拦截新建时，可先在 TMDB 网页创建一个空片单，再粘贴链接；插件会直接写入项目。" persistent-hint class="mb-3" />
             <VTextField v-model="tmdbExportName" label="TMDB 片单名称" class="mb-3" />
             <VTextarea v-model="tmdbExportDescription" label="TMDB 片单简介" rows="3" auto-grow />
             <VSwitch v-model="tmdbExportCreateNew" color="primary" label="新建一份 TMDB 片单（不写入此前导出的同源片单）" hide-details class="mt-1" />

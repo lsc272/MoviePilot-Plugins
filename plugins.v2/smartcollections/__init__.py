@@ -1,6 +1,7 @@
 import base64
 import datetime
 import json
+import re
 import threading
 import time
 import uuid
@@ -70,7 +71,7 @@ class SmartCollections(_PluginBase):
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.6.4"
+    plugin_version = "0.6.5"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -2292,11 +2293,18 @@ class SmartCollections(_PluginBase):
         description = str(
             payload.get("description") if payload.get("description") is not None else preview.get("description") or ""
         ).strip()
+        target_value = str(payload.get("target_list_url") or "").strip()
+        target_list_id = self._parse_tmdb_list_id(target_value)
+        if target_value and not target_list_id:
+            return {
+                "success": False,
+                "message": "无法识别已有 TMDB 片单链接，请粘贴 https://www.themoviedb.org/list/数字ID",
+            }
         source_key = self._source_key(preview.get("spec") or {})
         exports = self._load_tmdb_list_exports()
         previous = exports.get(source_key) or {}
         create_new = bool(payload.get("create_new"))
-        list_id = None if create_new else previous.get("list_id")
+        list_id = target_list_id or (None if create_new else previous.get("list_id"))
         client = self._tmdb_list_client(user_token=user_token)
         try:
             created = False
@@ -2357,6 +2365,18 @@ class SmartCollections(_PluginBase):
             for key, value in exports.items()
             if isinstance(value, dict) and value.get("list_id")
         }
+
+    @staticmethod
+    def _parse_tmdb_list_id(value: str) -> Optional[int]:
+        """Extract a TMDB list id from a user-provided web or API URL."""
+
+        match = re.search(r"(?:themoviedb\.org/(?:[^/]+/)?list/|/4/list/)(\d+)", value or "", re.I)
+        if not match:
+            return None
+        try:
+            return int(match.group(1))
+        except (TypeError, ValueError):
+            return None
 
     def _load_douban_cache(self) -> Dict[str, dict]:
         """Merge reviewed bundled mappings with the user's persistent cache."""
