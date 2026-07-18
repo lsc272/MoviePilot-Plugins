@@ -1122,6 +1122,7 @@ onMounted(loadStatus)
         <VCardTitle class="d-flex align-center ga-2 pa-5"><VIcon icon="mdi-export-variant" color="blue" />导出到我的 TMDB 片单</VCardTitle>
         <VDivider />
         <VCardText class="pa-5">
+          <VAlert v-if="error" type="error" variant="tonal" closable class="mb-4" @click:close="error = ''">{{ error }}</VAlert>
           <VAlert v-if="!tmdbExportStatus.read_token_configured" type="warning" variant="tonal" class="mb-4">
             请先到插件详情页的「设置」填写 <strong>TMDB v4 Read Access Token</strong> 并保存，然后再回来连接 TMDB 账号。
           </VAlert>

@@ -70,7 +70,7 @@ class SmartCollections(_PluginBase):
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.6.0"
+    plugin_version = "0.6.1"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"

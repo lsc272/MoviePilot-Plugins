@@ -69,6 +69,10 @@ class TmdbListClient:
                 "name": str(name or "").strip(),
                 "description": str(description or "").strip(),
                 "iso_639_1": iso_language or "zh",
+                # TMDB v4 validates list metadata as a complete object.  Some
+                # accounts reject a create request when region/public are omitted.
+                "iso_3166_1": "CN",
+                "public": True,
             },
         )
         try:
@@ -128,7 +132,7 @@ class TmdbListClient:
                 except Exception:
                     detail = ""
             suffix = f"：{detail}" if detail else ""
-            raise RuntimeError(f"TMDB 请求失败（{status}）{suffix}")
+            raise RuntimeError(f"TMDB 请求失败（{status}）{suffix}（{path}）")
         try:
             return response.json() or {}
         except Exception as exc:
