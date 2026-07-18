@@ -65,22 +65,40 @@ class TmdbListClient:
     def create_list(self, name: str, description: str, language: str) -> int:
         self._require_user_token()
         iso_language = str(language or "zh").strip().replace("_", "-").split("-", 1)[0]
-        payload = self._post(
-            "/list",
-            {
-                "name": str(name or "").strip(),
-                "description": str(description or "").strip(),
-                "iso_639_1": iso_language or "zh",
-                # TMDB v4 validates list metadata as a complete object.  Some
-                # accounts reject a create request when region/public are omitted.
-                "iso_3166_1": "CN",
-                "public": True,
-            },
-        )
-        try:
-            return int(payload.get("id") or payload.get("list_id"))
-        except (TypeError, ValueError) as exc:
-            raise RuntimeError("TMDB 未返回新片单 ID") from exc
+        # The v4 endpoint validates the list locale against its account-side
+        # locale catalogue.  Most accounts accept the source locale; a small
+        # subset returns the unhelpful generic 400 instead.  Retry only that
+        # validation response with TMDB's universal English/US pair.  This
+        # affects metadata locale only—the user supplied title/description and
+        # every exported item stay unchanged.
+        locale_candidates = [
+            (iso_language or "zh", "CN"),
+            ("en", "US"),
+        ]
+        last_error: Optional[RuntimeError] = None
+        for language_code, country_code in locale_candidates:
+            try:
+                payload = self._post(
+                    "/list",
+                    {
+                        "name": str(name or "").strip(),
+                        "description": str(description or "").strip(),
+                        "iso_639_1": language_code,
+                        "iso_3166_1": country_code,
+                        "public": True,
+                    },
+                )
+                try:
+                    return int(payload.get("id") or payload.get("list_id"))
+                except (TypeError, ValueError) as exc:
+                    raise RuntimeError("TMDB 未返回新片单 ID") from exc
+            except RuntimeError as exc:
+                last_error = exc
+                if "（400）" not in str(exc) or language_code == "en":
+                    raise
+        if last_error:
+            raise last_error
+        raise RuntimeError("TMDB 创建片单失败")
 
     def add_items(self, list_id: Any, items: Iterable[Dict[str, Any]]) -> int:
         """Add mixed movie/TV entries in small resilient batches."""

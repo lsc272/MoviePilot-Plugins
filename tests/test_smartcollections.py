@@ -233,7 +233,11 @@ class SmartCollectionsTests(unittest.TestCase):
             FakeResponse(
                 {"status_message": "Validation failed.", "errors": ["name is invalid"]},
                 status_code=400,
-            )
+            ),
+            FakeResponse(
+                {"status_message": "Validation failed.", "errors": ["name is invalid"]},
+                status_code=400,
+            ),
         ]
         client = tmdb_lists.TmdbListClient(
             application_token="application-read-token",
@@ -241,6 +245,26 @@ class SmartCollectionsTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, r"name is invalid.*（/list）"):
             client.create_list("测试", "", "zh")
+
+    def test_tmdb_v4_list_export_retries_generic_locale_validation(self):
+        FakeRequestUtils.post_calls = []
+        FakeRequestUtils.post_responses = [
+            FakeResponse({"status_message": "Validation failed."}, status_code=400),
+            FakeResponse({"id": 1234}),
+        ]
+        client = tmdb_lists.TmdbListClient(
+            application_token="application-read-token",
+            user_token="user-write-token",
+        )
+        self.assertEqual(client.create_list("中文标题", "中文简介", "zh-CN"), 1234)
+        self.assertEqual(
+            [call["json"]["iso_639_1"] for call in FakeRequestUtils.post_calls],
+            ["zh", "en"],
+        )
+        self.assertEqual(
+            [call["json"]["iso_3166_1"] for call in FakeRequestUtils.post_calls],
+            ["CN", "US"],
+        )
 
     def test_missing_item_subscription_uses_moviepilot_chain(self):
         source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
