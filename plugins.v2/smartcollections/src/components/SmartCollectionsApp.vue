@@ -45,6 +45,13 @@ const managedScheduleCron = ref('0 4 * * *')
 const catalogPolling = ref(false)
 const pageMaxItems = ref(2000)
 const pageSyncMode = ref('sync')
+const tmdbExportDialog = ref(false)
+const tmdbExportStatus = ref({ read_token_configured: false, connected: false })
+const tmdbAuthorizationUrl = ref('')
+const tmdbExportName = ref('')
+const tmdbExportDescription = ref('')
+const tmdbExportCreateNew = ref(false)
+const tmdbExportResult = ref(null)
 
 const pluginBase = computed(() => `plugin/${props.pluginId || 'SmartCollections'}`)
 const sourceItems = computed(() => status.value.catalog?.[sourceTab.value] || [])
@@ -53,6 +60,9 @@ const missingSubscribableItems = computed(() => (preview.value?.items || []).fil
   item => !item.matched && item.tmdb_id && ['movie', 'tv'].includes(item.media_type) && !subscribedKeys.value.includes(item.key),
 ))
 const visiblePreviewItems = computed(() => (preview.value?.items || []).slice(0, 2000))
+const tmdbExportableItems = computed(() => (preview.value?.items || []).filter(item => (
+  item.tmdb_id && ['movie', 'tv'].includes(item.media_type)
+)))
 const collectionTools = computed(() => status.value.collection_tools || {})
 const collectionInventory = computed(() => collectionTools.value.inventory || { total: 0, managed: 0, other: 0 })
 const backupOptions = computed(() => (collectionTools.value.backups || []).map(item => ({
@@ -86,6 +96,7 @@ async function loadStatus() {
     managedScheduleCron.value = status.value.managed_schedule?.cron || '0 4 * * *'
     pageMaxItems.value = Number(status.value.settings?.max_items || 2000)
     pageSyncMode.value = status.value.settings?.sync_mode || 'sync'
+    tmdbExportStatus.value = status.value.tmdb_export || tmdbExportStatus.value
     const backups = status.value.collection_tools?.backups || []
     if (backups.length && !backups.some(item => item.id === selectedBackupId.value)) {
       selectedBackupId.value = backups[0].id
@@ -184,6 +195,84 @@ async function syncPreview() {
       + (result.sync_guard ? `；安全保护已启用，本次只追加未删除：${result.sync_guard}` : '')
   } catch (err) {
     error.value = err?.message || '同步失败'
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
+function openTmdbExportDialog() {
+  if (!preview.value) return
+  tmdbExportName.value = preview.value.title || ''
+  tmdbExportDescription.value = preview.value.description || ''
+  tmdbExportCreateNew.value = false
+  tmdbExportResult.value = null
+  tmdbAuthorizationUrl.value = ''
+  tmdbExportStatus.value = status.value.tmdb_export || tmdbExportStatus.value
+  tmdbExportDialog.value = true
+}
+
+async function startTmdbAuthorization() {
+  actionLoading.value = 'tmdb-auth-start'
+  clearMessages()
+  try {
+    const data = assertResponse(await props.api.post(`${pluginBase.value}/tmdb/auth/start`, {})) || {}
+    tmdbAuthorizationUrl.value = data.authorization_url || ''
+    notice.value = '已生成 TMDB 授权链接。请在新页面确认授权后，回到此处点击“我已授权”。'
+  } catch (err) {
+    error.value = err?.message || '启动 TMDB 授权失败'
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
+async function completeTmdbAuthorization() {
+  actionLoading.value = 'tmdb-auth-complete'
+  clearMessages()
+  try {
+    const data = assertResponse(await props.api.post(`${pluginBase.value}/tmdb/auth/complete`, {})) || {}
+    tmdbExportStatus.value = data
+    status.value.tmdb_export = data
+    tmdbAuthorizationUrl.value = ''
+    notice.value = 'TMDB 账号已连接，现在可以导出片单。'
+  } catch (err) {
+    error.value = err?.message || 'TMDB 授权尚未完成'
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
+async function disconnectTmdbAuthorization() {
+  if (!window.confirm('仅删除本机保存的 TMDB 授权；不会删除你已经创建的 TMDB 片单。继续吗？')) return
+  actionLoading.value = 'tmdb-auth-disconnect'
+  clearMessages()
+  try {
+    const data = assertResponse(await props.api.post(`${pluginBase.value}/tmdb/auth/disconnect`, {})) || {}
+    tmdbExportStatus.value = data
+    status.value.tmdb_export = data
+    tmdbAuthorizationUrl.value = ''
+    notice.value = '已断开本机 TMDB 授权。'
+  } catch (err) {
+    error.value = err?.message || '断开 TMDB 授权失败'
+  } finally {
+    actionLoading.value = ''
+  }
+}
+
+async function exportToTmdb() {
+  if (!preview.value?.preview_id || !tmdbExportableItems.value.length) return
+  actionLoading.value = 'tmdb-export'
+  clearMessages()
+  try {
+    const result = assertResponse(await props.api.post(`${pluginBase.value}/tmdb/export`, {
+      preview_id: preview.value.preview_id,
+      name: tmdbExportName.value.trim(),
+      description: tmdbExportDescription.value.trim(),
+      create_new: tmdbExportCreateNew.value,
+    })) || {}
+    tmdbExportResult.value = result
+    notice.value = `已写入 TMDB 片单，共 ${result.exported_count || 0} 个已识别项目。`
+  } catch (err) {
+    error.value = err?.message || '导出 TMDB 片单失败'
   } finally {
     actionLoading.value = ''
   }
@@ -647,6 +736,11 @@ onMounted(loadStatus)
 
     <VAlert v-if="error" type="error" variant="tonal" closable class="mb-4" @click:close="error = ''">{{ error }}</VAlert>
     <VAlert v-if="notice" type="success" variant="tonal" closable class="mb-4" @click:close="notice = ''">{{ notice }}</VAlert>
+    <VAlert v-if="!tmdbExportStatus.read_token_configured" type="warning" variant="tonal" class="mb-4">
+      <div class="d-flex flex-wrap align-center ga-2">
+        <span>尚未配置 TMDB v4 Read Access Token。读取公开片单可继续使用 MoviePilot 的 v3 Key，但“导出到我的 TMDB 片单”需要先在插件「设置」中填写该 Token。</span>
+      </div>
+    </VAlert>
     <VProgressLinear v-if="loading || (actionLoading && !previewTask.running)" indeterminate color="primary" class="mb-4" />
     <VAlert v-if="previewTask.running" type="info" variant="tonal" class="mb-4">
       <div class="d-flex justify-space-between text-body-2 mb-2">
@@ -940,6 +1034,7 @@ onMounted(loadStatus)
               @click="subscribeMissingItems"
             >一键订阅缺失项目（{{ missingSubscribableItems.length }}）</VBtn>
             <VBtn color="success" prepend-icon="mdi-folder-plus" :disabled="!selectedPreviewKeys.length" :loading="actionLoading === 'sync-preview'" @click="syncPreview">同步至 Emby（{{ selectedPreviewKeys.length }}）</VBtn>
+            <VBtn color="blue" variant="tonal" prepend-icon="mdi-export-variant" :disabled="!tmdbExportableItems.length" @click="openTmdbExportDialog">导出到 TMDB（{{ tmdbExportableItems.length }}）</VBtn>
             <VBtn color="primary" variant="tonal" prepend-icon="mdi-bookmark-plus" @click="openTemplateDialog">保存为模板</VBtn>
           </div>
         </VCardTitle>
@@ -1019,6 +1114,57 @@ onMounted(loadStatus)
       <VCard title="保存为模板" rounded="xl">
         <VCardText><VTextField v-model="templateName" label="模板名称" /><VTextarea v-model="templateDescription" label="模板说明" rows="3" /></VCardText>
         <VCardActions><VSpacer /><VBtn variant="text" @click="templateDialog = false">取消</VBtn><VBtn color="primary" :loading="actionLoading === 'save-template'" @click="saveTemplate">保存</VBtn></VCardActions>
+      </VCard>
+    </VDialog>
+
+    <VDialog v-model="tmdbExportDialog" max-width="680">
+      <VCard rounded="xl">
+        <VCardTitle class="d-flex align-center ga-2 pa-5"><VIcon icon="mdi-export-variant" color="blue" />导出到我的 TMDB 片单</VCardTitle>
+        <VDivider />
+        <VCardText class="pa-5">
+          <VAlert v-if="!tmdbExportStatus.read_token_configured" type="warning" variant="tonal" class="mb-4">
+            请先到插件详情页的「设置」填写 <strong>TMDB v4 Read Access Token</strong> 并保存，然后再回来连接 TMDB 账号。
+          </VAlert>
+          <template v-else-if="!tmdbExportStatus.connected">
+            <VAlert type="info" variant="tonal" class="mb-4">
+              授权页面由 TMDB 官方提供。插件不会读取或保存你的 TMDB 密码，只会在本机保存用于创建片单的用户访问令牌。
+            </VAlert>
+            <div class="d-flex flex-wrap align-center ga-2">
+              <VBtn color="primary" prepend-icon="mdi-login-variant" :loading="actionLoading === 'tmdb-auth-start'" @click="startTmdbAuthorization">生成 TMDB 授权链接</VBtn>
+              <VBtn
+                v-if="tmdbAuthorizationUrl"
+                color="primary"
+                variant="tonal"
+                prepend-icon="mdi-open-in-new"
+                :href="tmdbAuthorizationUrl"
+                target="_blank"
+                rel="noopener"
+              >打开 TMDB 并授权</VBtn>
+              <VBtn v-if="tmdbAuthorizationUrl" color="success" variant="tonal" prepend-icon="mdi-check" :loading="actionLoading === 'tmdb-auth-complete'" @click="completeTmdbAuthorization">我已授权</VBtn>
+            </div>
+          </template>
+          <template v-else>
+            <div class="d-flex flex-wrap align-center justify-space-between ga-2 mb-4">
+              <VChip color="success" variant="tonal" prepend-icon="mdi-check-circle">TMDB 已连接<span v-if="tmdbExportStatus.account_id"> · 账号 {{ tmdbExportStatus.account_id }}</span></VChip>
+              <VBtn size="small" variant="text" color="error" :loading="actionLoading === 'tmdb-auth-disconnect'" @click="disconnectTmdbAuthorization">断开授权</VBtn>
+            </div>
+            <VAlert type="info" variant="tonal" density="compact" class="mb-4">
+              仅导出已确认的 TMDB ID：电影 {{ tmdbExportableItems.filter(item => item.media_type === 'movie').length }} 个，剧集 {{ tmdbExportableItems.filter(item => item.media_type === 'tv').length }} 个。再次导出时默认写入同一来源对应的 TMDB 片单，TMDB 会自动忽略已有成员。
+            </VAlert>
+            <VTextField v-model="tmdbExportName" label="TMDB 片单名称" class="mb-3" />
+            <VTextarea v-model="tmdbExportDescription" label="TMDB 片单简介" rows="3" auto-grow />
+            <VSwitch v-model="tmdbExportCreateNew" color="primary" label="新建一份 TMDB 片单（不写入此前导出的同源片单）" hide-details class="mt-1" />
+            <VAlert v-if="tmdbExportResult" type="success" variant="tonal" class="mt-4">
+              已{{ tmdbExportResult.created ? '创建并' : '' }}写入 {{ tmdbExportResult.exported_count }} 个项目。
+              <a :href="tmdbExportResult.list_url" target="_blank" rel="noopener" class="ms-1">打开 TMDB 片单</a>
+            </VAlert>
+          </template>
+        </VCardText>
+        <VCardActions class="px-5 pb-5">
+          <VSpacer />
+          <VBtn variant="text" @click="tmdbExportDialog = false">关闭</VBtn>
+          <VBtn v-if="tmdbExportStatus.connected" color="blue" prepend-icon="mdi-export-variant" :disabled="!tmdbExportableItems.length || !tmdbExportName.trim()" :loading="actionLoading === 'tmdb-export'" @click="exportToTmdb">{{ tmdbExportCreateNew ? '创建并导出' : '写入 TMDB 片单' }}</VBtn>
+        </VCardActions>
       </VCard>
     </VDialog>
 

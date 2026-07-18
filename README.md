@@ -2,7 +2,7 @@
 
 MoviePilot V2 插件：从热门 TMDB 片单、热门豆瓣豆列或手动输入的公开片单链接读取电影和剧集，按 TMDB ID 精确匹配 Emby 媒体库中已有项目，并创建或更新 Emby 合集。
 
-当前版本：v0.5.1
+当前版本：v0.6.0
 
 ## 功能
 
@@ -11,6 +11,7 @@ MoviePilot V2 插件：从热门 TMDB 片单、热门豆瓣豆列或手动输入
 - 热门豆瓣豆列：直接浏览公开豆列，目录和新建合集优先采用豆列页面返回的实际标题。
 - 手动链接：粘贴公开 TMDB List 或豆瓣豆列链接，自动读取合集名称。
 - TMDB List：支持 TMDB v4 混合片单；未配置 v4 Token 时回退到 MoviePilot 的 TMDB v3 API Key。
+- 导出 TMDB List：预览中的已确认 TMDB ID 可通过 TMDB v4 用户授权导出为你自己的混合电影/剧集片单；后续可继续写入同一来源对应的片单，或另建一份。插件不会读取或保存 TMDB 密码。
 - TMDB 分页：v4 与 v3 回退路径都会逐页读取，直到来源结束或达到配置的最大条目数，不再停留在默认第一页 20 条。
 - 豆瓣豆列：通过 MoviePilot 官方 `MediaChain.get_tmdbinfo_by_doubanid` 转换为 TMDB ID，兼容电影和剧集，并缓存识别结果。
 - 豆瓣大豆列容错：优先用 Emby 的标题、原名和年份匹配；大型豆列会并发按中外文别名查询 TMDB，较小豆列在豆瓣 ID 转换被限流时也会自动回退，剧集季度标题可映射到整部剧集。
@@ -61,7 +62,9 @@ https://www.douban.com/doulist/240962/
 
 插件会先展示匹配和缺失结果；确认合集名称与条目选择后再同步到 Emby，不需要填写配置 JSON。
 
-TMDB v4 Read Access Token 建议填写，以支持新版混合片单中的电影和剧集。Token 只保存在 MoviePilot 插件配置中。
+TMDB v4 Read Access Token 位于插件详情页的“设置”中，标签为“TMDB v4 Read Access Token（导出 TMDB 片单必填）”。在 TMDB 账户设置 → API 中复制 **API Read Access Token (v4 auth)**；它用于读取混合片单和启动用户授权，Token 只保存在 MoviePilot 插件配置中。
+
+若要导出，在任意片单预览右上角点击“导出到 TMDB”，按提示跳转到 TMDB 官方页面确认授权。授权完成后，插件只在本机插件数据中保存 TMDB 返回的用户访问令牌；可随时点击“断开授权”删除本机令牌，不会删除已创建的 TMDB 片单。
 
 ## 使用
 

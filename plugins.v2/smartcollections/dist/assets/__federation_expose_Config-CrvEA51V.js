@@ -60,6 +60,7 @@ onMounted(async () => {
 return (_ctx, _cache) => {
   const _component_VSpacer = _resolveComponent("VSpacer");
   const _component_VBtn = _resolveComponent("VBtn");
+  const _component_VAlert = _resolveComponent("VAlert");
   const _component_VSwitch = _resolveComponent("VSwitch");
   const _component_VCol = _resolveComponent("VCol");
   const _component_VSelect = _resolveComponent("VSelect");
@@ -98,6 +99,18 @@ return (_ctx, _cache) => {
       default: _withCtx(() => [
         _createVNode(_component_VCardText, null, {
           default: _withCtx(() => [
+            _createVNode(_component_VAlert, {
+              type: "info",
+              variant: "tonal",
+              density: "compact",
+              class: "mb-4"
+            }, {
+              default: _withCtx(() => [...(_cache[17] || (_cache[17] = [
+                _createElementVNode("strong", null, "TMDB v4 Read Access Token", -1),
+                _createTextVNode(" 位于下方“TMDB 连接”栏。它用于读取混合 TMDB List，并启用“导出到我的 TMDB 片单”；不等同于 MoviePilot 全局的 v3 API Key。 ", -1)
+              ]))]),
+              _: 1
+            }),
             _createVNode(_component_VRow, null, {
               default: _withCtx(() => [
                 _createVNode(_component_VCol, {
@@ -222,7 +235,10 @@ return (_ctx, _cache) => {
                       modelValue: config.value.tmdb_token,
                       "onUpdate:modelValue": _cache[9] || (_cache[9] = $event => ((config.value.tmdb_token) = $event)),
                       type: "password",
-                      label: "TMDB v4 Read Access Token"
+                      label: "TMDB v4 Read Access Token（导出 TMDB 片单必填）",
+                      hint: "在 TMDB 账户设置 → API 中复制 API Read Access Token (v4 auth)。",
+                      "persistent-hint": "",
+                      "prepend-inner-icon": "mdi-key-variant"
                     }, null, 8, ["modelValue"])
                   ]),
                   _: 1

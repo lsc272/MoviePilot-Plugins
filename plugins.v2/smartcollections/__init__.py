@@ -28,6 +28,7 @@ from app.schemas.types import EventType, MediaType, NotificationType, SystemConf
 from .collection_backup import EmbyCollectionBackupManager
 from .emby import EmbyCollectionClient
 from .poster import CollectionPosterBuilder
+from .tmdb_lists import TmdbListClient
 from .sources import (
     POPULAR_DOUBAN_LISTS,
     POPULAR_TMDB_LISTS,
@@ -69,7 +70,7 @@ class SmartCollections(_PluginBase):
     plugin_name = "智能合集"
     plugin_desc = "从热门 TMDB 片单、热门豆列或手动链接同步 Emby 合集。"
     plugin_icon = "smartcollections.svg"
-    plugin_version = "0.5.1"
+    plugin_version = "0.6.0"
     plugin_author = "lsc272"
     author_url = "https://github.com/lsc272"
     plugin_config_prefix = "smartcollections_"
@@ -296,6 +297,41 @@ class SmartCollections(_PluginBase):
                 "methods": ["GET"],
                 "auth": "bear",
                 "summary": "导出本地豆瓣到 TMDB 成功映射",
+            },
+            {
+                "path": "/tmdb/export/status",
+                "endpoint": self.api_tmdb_export_status,
+                "methods": ["GET"],
+                "auth": "bear",
+                "summary": "查询 TMDB List 导出授权状态",
+            },
+            {
+                "path": "/tmdb/auth/start",
+                "endpoint": self.api_tmdb_auth_start,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "开始 TMDB 用户授权",
+            },
+            {
+                "path": "/tmdb/auth/complete",
+                "endpoint": self.api_tmdb_auth_complete,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "完成 TMDB 用户授权",
+            },
+            {
+                "path": "/tmdb/auth/disconnect",
+                "endpoint": self.api_tmdb_auth_disconnect,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "断开本地 TMDB 用户授权",
+            },
+            {
+                "path": "/tmdb/export",
+                "endpoint": self.api_tmdb_export,
+                "methods": ["POST"],
+                "auth": "bear",
+                "summary": "导出预览中的 TMDB 项目为 TMDB List",
             },
             {
                 "path": "/preview",
@@ -602,9 +638,9 @@ class SmartCollections(_PluginBase):
                                         "component": "VTextField",
                                         "props": {
                                             "model": "tmdb_token",
-                                            "label": "TMDB v4 Read Access Token",
+                                            "label": "TMDB v4 Read Access Token（导出 TMDB 片单必填）",
                                             "type": "password",
-                                            "hint": "推荐填写；未填写时使用 MoviePilot 的 TMDB v3 API Key 回退",
+                                            "hint": "在 TMDB 账户设置 → API 复制 API Read Access Token (v4 auth)；未填写时仅回退使用 MoviePilot 的 TMDB v3 API Key",
                                             "persistent-hint": True,
                                         },
                                     }
@@ -856,6 +892,7 @@ class SmartCollections(_PluginBase):
                     "enabled": self._managed_schedule_enabled,
                     "cron": self._managed_schedule_cron,
                 },
+                "tmdb_export": self._tmdb_export_status_payload(),
                 "emby_servers": [
                     conf.name
                     for conf in MediaServerHelper().get_configs().values()
@@ -2156,6 +2193,169 @@ class SmartCollections(_PluginBase):
                 "mappings": mappings,
                 "mapping_count": len(mappings),
             },
+        }
+
+    def api_tmdb_export_status(self) -> Dict[str, Any]:
+        return {"success": True, "data": self._tmdb_export_status_payload()}
+
+    def api_tmdb_auth_start(self) -> Dict[str, Any]:
+        """Request a short-lived TMDB user authorization token.
+
+        The application token is only used for this exchange.  The user token
+        returned after approval is never sent back to the browser.
+        """
+
+        try:
+            issued = self._tmdb_list_client().create_request_token()
+            request_token = str(issued["request_token"])
+            self.save_data(
+                "tmdb_user_authorization_pending",
+                {
+                    "request_token": request_token,
+                    "expires_at": issued.get("expires_at"),
+                    "created_at": time.time(),
+                },
+            )
+            return {
+                "success": True,
+                "data": {
+                    "authorization_url": (
+                        "https://www.themoviedb.org/auth/access?request_token="
+                        f"{request_token}"
+                    ),
+                    "expires_at": issued.get("expires_at"),
+                },
+                "message": "请在新页面完成 TMDB 授权，再回到这里确认",
+            }
+        except Exception as exc:
+            logger.warning(f"智能合集启动 TMDB 用户授权失败：{exc}")
+            return {"success": False, "message": str(exc)}
+
+    def api_tmdb_auth_complete(self) -> Dict[str, Any]:
+        pending = self.get_data("tmdb_user_authorization_pending") or {}
+        request_token = str(pending.get("request_token") or "").strip()
+        if not request_token:
+            return {"success": False, "message": "没有待完成的 TMDB 授权，请重新开始"}
+        if time.time() - float(pending.get("created_at") or 0) > 20 * 60:
+            self.save_data("tmdb_user_authorization_pending", None)
+            return {"success": False, "message": "TMDB 授权已过期，请重新开始"}
+        try:
+            granted = self._tmdb_list_client().create_access_token(request_token)
+            self.save_data(
+                "tmdb_user_authorization",
+                {
+                    "access_token": granted["access_token"],
+                    "account_id": granted.get("account_id"),
+                    "connected_at": self._now(),
+                },
+            )
+            self.save_data("tmdb_user_authorization_pending", None)
+            return {
+                "success": True,
+                "data": self._tmdb_export_status_payload(),
+                "message": "TMDB 账号已连接",
+            }
+        except Exception as exc:
+            logger.warning(f"智能合集完成 TMDB 用户授权失败：{exc}")
+            return {"success": False, "message": str(exc)}
+
+    def api_tmdb_auth_disconnect(self) -> Dict[str, Any]:
+        self.save_data("tmdb_user_authorization", None)
+        self.save_data("tmdb_user_authorization_pending", None)
+        return {
+            "success": True,
+            "data": self._tmdb_export_status_payload(),
+            "message": "已移除本机保存的 TMDB 授权",
+        }
+
+    def api_tmdb_export(self, payload: dict = Body(...)) -> Dict[str, Any]:
+        payload = payload or {}
+        preview = self._get_preview(str(payload.get("preview_id") or ""))
+        if not preview:
+            return {"success": False, "message": "预览已过期，请重新预览后再导出"}
+        authorization = self.get_data("tmdb_user_authorization") or {}
+        user_token = str(authorization.get("access_token") or "").strip()
+        if not user_token:
+            return {"success": False, "message": "请先连接你的 TMDB 账号"}
+
+        items = [
+            item
+            for item in (preview.get("items") or [])
+            if str(item.get("media_type") or "") in {"movie", "tv"}
+            and item.get("tmdb_id")
+        ]
+        if not items:
+            return {"success": False, "message": "当前预览没有可导出的 TMDB 项目"}
+        name = str(payload.get("name") or preview.get("title") or "").strip()
+        if not name:
+            return {"success": False, "message": "TMDB 片单名称不能为空"}
+        description = str(
+            payload.get("description") if payload.get("description") is not None else preview.get("description") or ""
+        ).strip()
+        source_key = self._source_key(preview.get("spec") or {})
+        exports = self._load_tmdb_list_exports()
+        previous = exports.get(source_key) or {}
+        create_new = bool(payload.get("create_new"))
+        list_id = None if create_new else previous.get("list_id")
+        client = self._tmdb_list_client(user_token=user_token)
+        try:
+            created = False
+            if not list_id:
+                list_id = client.create_list(name, description, self._language)
+                created = True
+            added = client.add_items(list_id, items)
+            exports[source_key] = {
+                "list_id": int(list_id),
+                "url": client.list_url(list_id),
+                "name": name,
+                "description": description,
+                "source_url": preview.get("source_url"),
+                "created_at": previous.get("created_at") or self._now(),
+                "last_export_at": self._now(),
+            }
+            self.save_data("tmdb_list_exports", exports)
+            return {
+                "success": True,
+                "data": {
+                    "list_id": int(list_id),
+                    "list_url": client.list_url(list_id),
+                    "created": created,
+                    "exported_count": added,
+                    "movie_count": sum(item.get("media_type") == "movie" for item in items),
+                    "tv_count": sum(item.get("media_type") == "tv" for item in items),
+                },
+                "message": (
+                    f"已{'创建并' if created else ''}写入 TMDB 片单，共 {added} 个已识别项目"
+                ),
+            }
+        except Exception as exc:
+            logger.warning(f"智能合集导出 TMDB List 失败：{exc}")
+            return {"success": False, "message": str(exc)}
+
+    def _tmdb_export_status_payload(self) -> Dict[str, Any]:
+        authorization = self.get_data("tmdb_user_authorization") or {}
+        return {
+            "read_token_configured": bool(self._tmdb_token),
+            "connected": bool(authorization.get("access_token")),
+            "account_id": authorization.get("account_id"),
+            "connected_at": authorization.get("connected_at"),
+        }
+
+    def _tmdb_list_client(self, user_token: Optional[str] = None) -> TmdbListClient:
+        return TmdbListClient(
+            application_token=self._tmdb_token,
+            user_token=user_token,
+            proxies=settings.PROXY if self._use_proxy else None,
+        )
+
+    def _load_tmdb_list_exports(self) -> Dict[str, Dict[str, Any]]:
+        exports = self.get_data("tmdb_list_exports") or {}
+        if not isinstance(exports, dict):
+            return {}
+        return {
+            str(key): dict(value)
+            for key, value in exports.items()
+            if isinstance(value, dict) and value.get("list_id")
         }
 
     def _load_douban_cache(self) -> Dict[str, dict]:

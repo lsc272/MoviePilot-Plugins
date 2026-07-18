@@ -58,6 +58,9 @@ onMounted(async () => {
 
     <VCard variant="outlined" rounded="lg">
       <VCardText>
+        <VAlert type="info" variant="tonal" density="compact" class="mb-4">
+          <strong>TMDB v4 Read Access Token</strong> 位于下方“TMDB 连接”栏。它用于读取混合 TMDB List，并启用“导出到我的 TMDB 片单”；不等同于 MoviePilot 全局的 v3 API Key。
+        </VAlert>
         <VRow>
           <VCol cols="12" md="3"><VSwitch v-model="config.enabled" label="启用定时同步" color="primary" /></VCol>
           <VCol cols="12" md="3"><VSwitch v-model="config.show_sidebar_nav" label="显示侧栏入口" color="primary" /></VCol>
@@ -69,7 +72,16 @@ onMounted(async () => {
           <VCol cols="12" md="4">
             <VSelect v-model="config.sync_mode" label="默认更新模式" :items="[{ title: '完全同步（增删）', value: 'sync' }, { title: '仅追加', value: 'append' }]" />
           </VCol>
-          <VCol cols="12" md="6"><VTextField v-model="config.tmdb_token" type="password" label="TMDB v4 Read Access Token" /></VCol>
+          <VCol cols="12" md="6">
+            <VTextField
+              v-model="config.tmdb_token"
+              type="password"
+              label="TMDB v4 Read Access Token（导出 TMDB 片单必填）"
+              hint="在 TMDB 账户设置 → API 中复制 API Read Access Token (v4 auth)。"
+              persistent-hint
+              prepend-inner-icon="mdi-key-variant"
+            />
+          </VCol>
           <VCol cols="6" md="3"><VTextField v-model="config.language" label="TMDB 语言" /></VCol>
           <VCol cols="6" md="3"><VTextField v-model.number="config.max_items" type="number" label="每个片单最多读取" /></VCol>
           <VCol cols="12" md="4"><VSwitch v-model="config.managed_schedule_enabled" label="定时重同步已管理合集" color="primary" /></VCol>

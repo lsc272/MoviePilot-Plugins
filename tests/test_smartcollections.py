@@ -53,13 +53,23 @@ class TestLogger:
 log.logger = TestLogger()
 class FakeRequestUtils:
     deleted_urls = []
+    post_calls = []
+    post_responses = []
 
     def __init__(self, *args, **kwargs):
-        pass
+        self.kwargs = kwargs
 
     def delete_res(self, url):
         self.deleted_urls.append(url)
         return FakeResponse({}, 204)
+
+    def post_res(self, url, data=None, params=None, json=None, **kwargs):
+        self.post_calls.append(
+            {"url": url, "data": data, "params": params, "json": json, "headers": self.kwargs.get("headers")}
+        )
+        if self.post_responses:
+            return self.post_responses.pop(0)
+        return FakeResponse({}, 200)
 
 
 http.RequestUtils = FakeRequestUtils
@@ -80,6 +90,7 @@ poster = load_module("smartcollections_poster_test", PLUGIN / "poster.py")
 collection_backup = load_module(
     "smartcollections_collection_backup_test", PLUGIN / "collection_backup.py"
 )
+tmdb_lists = load_module("smartcollections_tmdb_lists_test", PLUGIN / "tmdb_lists.py")
 
 
 class FakeResponse:
@@ -166,6 +177,54 @@ class FakeEmby:
 
 
 class SmartCollectionsTests(unittest.TestCase):
+    def test_tmdb_v4_list_export_uses_separate_user_token_and_mixed_items(self):
+        FakeRequestUtils.post_calls = []
+        FakeRequestUtils.post_responses = [
+            FakeResponse({"id": 987}),
+            FakeResponse({"status_code": 1}),
+        ]
+        client = tmdb_lists.TmdbListClient(
+            application_token="application-read-token",
+            user_token="user-write-token",
+        )
+        list_id = client.create_list("豆瓣测试", "来自豆列", "zh-CN")
+        count = client.add_items(
+            list_id,
+            [
+                {"media_type": "movie", "tmdb_id": 101},
+                {"media_type": "tv", "tmdb_id": 202},
+                {"media_type": "movie", "tmdb_id": 101},
+                {"media_type": "unknown", "tmdb_id": 303},
+            ],
+        )
+        self.assertEqual(list_id, 987)
+        self.assertEqual(count, 2)
+        self.assertEqual(FakeRequestUtils.post_calls[0]["url"], "https://api.themoviedb.org/4/list")
+        self.assertEqual(FakeRequestUtils.post_calls[0]["json"]["name"], "豆瓣测试")
+        self.assertEqual(FakeRequestUtils.post_calls[0]["json"]["iso_639_1"], "zh")
+        self.assertEqual(
+            FakeRequestUtils.post_calls[1]["json"],
+            {"items": [{"media_type": "movie", "media_id": 101}, {"media_type": "tv", "media_id": 202}]},
+        )
+        for call in FakeRequestUtils.post_calls:
+            self.assertEqual(call["headers"]["Authorization"], "Bearer user-write-token")
+            self.assertNotIn("application-read-token", str(call))
+
+    def test_tmdb_v4_auth_exchange_uses_application_token(self):
+        FakeRequestUtils.post_calls = []
+        FakeRequestUtils.post_responses = [
+            FakeResponse({"request_token": "short-lived", "expires_at": "2026-01-01T00:00:00.000Z"}),
+            FakeResponse({"access_token": "user-secret", "account_id": "88"}),
+        ]
+        client = tmdb_lists.TmdbListClient(application_token="application-read-token")
+        pending = client.create_request_token()
+        granted = client.create_access_token(pending["request_token"])
+        self.assertEqual(granted["account_id"], "88")
+        self.assertEqual(
+            [call["headers"]["Authorization"] for call in FakeRequestUtils.post_calls],
+            ["Bearer application-read-token", "Bearer application-read-token"],
+        )
+
     def test_missing_item_subscription_uses_moviepilot_chain(self):
         source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
