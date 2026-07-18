@@ -5,6 +5,8 @@ lookups.  Writing a list is different: TMDB requires a user access token, so
 this module deliberately keeps the two credentials separate.
 """
 
+import json
+
 from typing import Any, Dict, Iterable, List, Optional
 
 from app.core.config import settings
@@ -128,7 +130,20 @@ class TmdbListClient:
             if response is not None:
                 try:
                     payload = response.json() or {}
-                    detail = str(payload.get("status_message") or payload.get("message") or "")
+                    # TMDB usually returns only ``status_message``.  Validation
+                    # failures, however, may also contain a structured ``errors``
+                    # field.  Preserve it so a real account-level failure can be
+                    # diagnosed without exposing the Authorization header.
+                    detail_value = (
+                        payload.get("errors")
+                        or payload.get("status_message")
+                        or payload.get("message")
+                        or ""
+                    )
+                    if isinstance(detail_value, (dict, list)):
+                        detail = json.dumps(detail_value, ensure_ascii=False)
+                    else:
+                        detail = str(detail_value)
                 except Exception:
                     detail = ""
             suffix = f"：{detail}" if detail else ""

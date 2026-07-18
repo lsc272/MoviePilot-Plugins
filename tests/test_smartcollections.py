@@ -227,6 +227,21 @@ class SmartCollectionsTests(unittest.TestCase):
             ["Bearer application-read-token", "Bearer application-read-token"],
         )
 
+    def test_tmdb_v4_list_export_reports_structured_validation_errors(self):
+        FakeRequestUtils.post_calls = []
+        FakeRequestUtils.post_responses = [
+            FakeResponse(
+                {"status_message": "Validation failed.", "errors": ["name is invalid"]},
+                status_code=400,
+            )
+        ]
+        client = tmdb_lists.TmdbListClient(
+            application_token="application-read-token",
+            user_token="user-write-token",
+        )
+        with self.assertRaisesRegex(RuntimeError, r"name is invalid.*（/list）"):
+            client.create_list("测试", "", "zh")
+
     def test_missing_item_subscription_uses_moviepilot_chain(self):
         source = (PLUGIN / "__init__.py").read_text(encoding="utf-8")
         tree = ast.parse(source)

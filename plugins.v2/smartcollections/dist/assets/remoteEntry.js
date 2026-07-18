@@ -48,7 +48,7 @@ const currentImports = {};
          } else {
            href = cssPath;
          }
-
+         
           if (dontAppendStylesToHead) {
             const key = 'css__SmartCollections__' + exposeItemName;
             window[key] = window[key] || [];
